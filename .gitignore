@@ -1,0 +1,14 @@
+*
+!.gitignore
+!*.nix
+!.shellhook
+!README.md
+!.clang-format
+
+!scripts/
+!*.sh
+
+!src/
+!*.asm
+!*.c
+!*.hs
