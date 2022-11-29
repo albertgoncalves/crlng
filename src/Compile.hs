@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Compile where
 
 import Ast (Expr (..), Func (..), Scope (..), Stmt (..))
-import Control.Monad.State (State, modify, state)
+import Control.Monad.State (State, execState, modify, state)
+import Data.ByteString.Builder (Builder, charUtf8, stringUtf8)
 import Data.Char (ord)
 import Data.List (intercalate)
 import qualified Data.Map as M
@@ -207,7 +210,9 @@ compileYield :: String -> State Compiler ()
 compileYield label = do
   setInsts
     [ InstMov rax $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
-      InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord) (OpReg RegRsp),
+      InstMov
+        (OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord)
+        (OpReg RegRsp),
       InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) $ quadWord * 2) $
         OpReg RegRbp,
       InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) 0) $
@@ -335,8 +340,40 @@ optimizePushPop (inst : insts) = inst : optimizePushPop insts
 optimize :: State Compiler ()
 optimize = modify $ \c -> c {compilerInsts = optimizePushPop $ compilerInsts c}
 
-compile :: [Func] -> State Compiler ()
-compile funcs = do
+compileFuncs :: [Func] -> State Compiler ()
+compileFuncs funcs = do
   mapM_ compileFunc funcs
   modify $ \c -> c {compilerInsts = reverse $ compilerInsts c}
   optimize
+
+compile :: [Func] -> Builder
+compile funcs = header <> strings <> insts
+  where
+    program = execState (compileFuncs funcs) newCompiler
+    header =
+      foldMap
+        (<> charUtf8 '\n')
+        [ "format ELF64",
+          "public _main_thread_yield_",
+          "extrn THREAD",
+          "extrn SCHED_RSP",
+          "extrn SCHED_RBP",
+          "extrn scheduler",
+          "extrn receive",
+          "extrn send",
+          "extrn kill",
+          "extrn channel_new",
+          "extrn thread_new",
+          "extrn thread_push_stack",
+          "extrn printf"
+        ]
+    strings =
+      "section '.rodata'\n"
+        <> foldMap
+          (stringUtf8 . uncurry (flip (printf "\t%s db %s\n") . intoAsmString))
+          (M.toList $ compilerStrings program)
+    insts =
+      "section '.text' executable\n"
+        <> foldMap
+          (stringUtf8 . printf "\t%s\n" . show)
+          (compilerInsts program)

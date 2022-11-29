@@ -1,39 +1,15 @@
 import Ast (Expr (..), Func (..), Scope (..), Stmt (..))
-import Compile (Compiler (..), compile, intoAsmString, newCompiler)
-import Control.Monad.State (execState)
-import Data.List (intercalate)
-import Data.Map (toList)
-import System.IO (hPrint, stderr)
-import Text.Printf (printf)
+import Compile (compile)
+import Data.ByteString.Builder (toLazyByteString)
+import qualified Data.ByteString.Lazy as B
+import System.Environment (getArgs)
 
 main :: IO ()
 main = do
-  mapM_ (hPrint stderr) funcs
-  putStrLn $
-    intercalate
-      "\n"
-      [ "format ELF64",
-        "public _main_thread_yield_",
-        "extrn THREAD",
-        "extrn SCHED_RSP",
-        "extrn SCHED_RBP",
-        "extrn scheduler",
-        "extrn channel_new",
-        "extrn receive",
-        "extrn send",
-        "extrn kill",
-        "extrn thread_new",
-        "extrn thread_push_stack",
-        "extrn printf"
-      ]
-  putStrLn "section '.rodata'"
-  mapM_
-    (putStrLn . uncurry (flip (printf "\t%s db %s") . intoAsmString))
-    $ toList $ compilerStrings program
-  putStrLn "section '.text' executable"
-  mapM_ (putStrLn . ('\t' :) . show) $ compilerInsts program
+  mapM_ print funcs
+  path <- head <$> getArgs
+  B.writeFile path $ toLazyByteString $ compile funcs
   where
-    program = execState (compile funcs) newCompiler
     funcs =
       [ Func
           "ping_pong"
