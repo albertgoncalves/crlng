@@ -146,10 +146,20 @@ setInstPush op = do
   setInst $ InstPush op
   subRsp quadWord
 
-setInstPop :: Op -> State Compiler ()
-setInstPop op = do
+setInstPop :: Maybe Op -> State Compiler ()
+setInstPop Nothing = do
+  setInst $ InstAdd (OpReg RegRsp) (OpImm quadWord)
+  addRsp quadWord
+setInstPop (Just op) = do
   setInst $ InstPop op
   addRsp quadWord
+
+resetStack :: Int -> Int -> State Compiler ()
+resetStack rspPre rspPost
+  | rspPre == rspPost = return ()
+  | otherwise = do
+    setInst $ InstAdd (OpReg RegRsp) $ OpImm $ rspPre - rspPost
+    setRsp rspPre
 
 getLocal :: String -> State Compiler Int
 getLocal var =
@@ -183,7 +193,7 @@ compileCallArgs _ [] = undefined
 compileCallArgs (arg : args) (reg : regs) = do
   compileExpr arg
   compileCallArgs args regs
-  setInstPop $ OpReg reg
+  setInstPop $ Just $ OpReg reg
 
 argRegs :: [Reg]
 argRegs = [RegRdi, RegRsi, RegRdx, RegRcx, RegR8, RegR9]
@@ -192,15 +202,15 @@ compileBinOp :: Expr -> Expr -> Reg -> Reg -> State Compiler ()
 compileBinOp exprLeft exprRight regLeft regRight = do
   compileExpr exprLeft
   compileExpr exprRight
-  setInstPop $ OpReg regRight
-  setInstPop $ OpReg regLeft
+  setInstPop $ Just $ OpReg regRight
+  setInstPop $ Just $ OpReg regLeft
 
 compileSpawnArg :: Expr -> State Compiler ()
 compileSpawnArg arg = do
   setInst $
     InstMov (OpReg RegRdi) $ OpAddrOffset $ AddrOffset (AddrReg RegRsp) 0
   compileExpr arg
-  setInstPop $ OpReg RegRsi
+  setInstPop $ Just $ OpReg RegRsi
   setInst $ InstCall $ OpLabel "thread_push_stack"
 
 intoYieldLabel :: String -> String
@@ -287,19 +297,13 @@ compileExpr
       [ InstCmp (OpReg RegR10) (OpReg RegR11),
         InstJnz $ OpLabel labelElse
       ]
+    rspPre <- getRsp
     compileScope scopeTrue
-    addRsp quadWord
+    setRsp rspPre
     setInsts [InstJmp $ OpLabel labelEnd, InstLabel labelElse]
     compileScope scopeFalse
     setInst $ InstLabel labelEnd
 compileExpr (ExprIfElse {}) = undefined
-
-dropStack :: Int -> Int -> State Compiler ()
-dropStack rspPre rspPost
-  | rspPre == rspPost = return ()
-  | otherwise = do
-    setInst $ InstAdd (OpReg RegRsp) $ OpImm $ rspPre - rspPost
-    setRsp rspPre
 
 compileScope :: Scope -> State Compiler ()
 compileScope (Scope [] expr) = compileExpr expr
@@ -309,16 +313,15 @@ compileScope (Scope stmts expr) = do
   mapM_ compileStmt stmts
   rspPost <- getRsp
   compileExpr expr
-  setInstPop rax
-  dropStack rspPre rspPost
+  setInstPop $ Just rax
+  resetStack rspPre rspPost
   setInstPush rax
   popLocals
 
 compileStmt :: Stmt -> State Compiler ()
 compileStmt (StmtEffect expr) = do
   compileExpr expr
-  setInst $ InstAdd (OpReg RegRsp) (OpImm quadWord)
-  addRsp quadWord
+  setInstPop Nothing
 compileStmt (StmtLet var scope) = do
   compileScope scope
   setLocal var
@@ -339,9 +342,9 @@ compileFunc (Func label args scope) = do
   compileFuncArgs args argRegs
   compileYield label
   compileScope scope
-  setInstPop rax
+  setInstPop $ Just rax
   rspPost <- getRsp
-  dropStack rspPre rspPost
+  resetStack rspPre rspPost
   setInst InstRet
   popLocals
 
@@ -379,7 +382,6 @@ compile funcs = header <> strings <> insts
           "extrn scheduler",
           "extrn receive",
           "extrn send",
-          "extrn kill",
           "extrn thread_new",
           "extrn thread_kill",
           "extrn thread_push_stack",
