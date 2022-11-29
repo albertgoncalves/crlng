@@ -206,6 +206,16 @@ compileSpawnArg arg = do
 intoYieldLabel :: String -> String
 intoYieldLabel = printf "_%s_yield_"
 
+setInstsJumpScheduler :: State Compiler ()
+setInstsJumpScheduler = do
+  setInsts
+    [ InstMov (OpReg RegRsp) $
+        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RSP") 0,
+      InstMov (OpReg RegRbp) $
+        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RBP") 0,
+      InstJmp $ OpLabel "scheduler"
+    ]
+
 compileYield :: String -> State Compiler ()
 compileYield label = do
   setInsts
@@ -216,13 +226,11 @@ compileYield label = do
       InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) $ quadWord * 2) $
         OpReg RegRbp,
       InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) 0) $
-        OpLabel yieldLabel,
-      InstMov (OpReg RegRsp) $
-        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RSP") 0,
-      InstMov (OpReg RegRbp) $
-        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RBP") 0,
-      InstJmp $ OpLabel "scheduler",
-      InstLabel yieldLabel,
+        OpLabel yieldLabel
+    ]
+  setInstsJumpScheduler
+  setInsts
+    [ InstLabel yieldLabel,
       InstMov rax $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
       InstMov (OpReg RegRsp) $
         OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord,
@@ -257,6 +265,15 @@ compileExpr (ExprCall "printf" args) = do
   compileCallArgs args argRegs
   setInsts [InstXor rax rax, InstCall $ OpLabel "printf"]
   setInstPush rax
+compileExpr (ExprCall "kill" []) = do
+  setInsts
+    [ InstMov
+        (OpReg RegRdi)
+        $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
+      InstCall $ OpLabel "thread_kill"
+    ]
+  setInstsJumpScheduler
+  setInstPush $ OpImm 0
 compileExpr (ExprCall func args) = do
   compileCallArgs args argRegs
   setInst $ InstCall $ OpLabel func
@@ -355,6 +372,7 @@ compile funcs = header <> strings <> insts
         (<> charUtf8 '\n')
         [ "format ELF64",
           "public _main_thread_yield_",
+          "extrn printf",
           "extrn THREAD",
           "extrn SCHED_RSP",
           "extrn SCHED_RBP",
@@ -362,10 +380,10 @@ compile funcs = header <> strings <> insts
           "extrn receive",
           "extrn send",
           "extrn kill",
-          "extrn channel_new",
           "extrn thread_new",
+          "extrn thread_kill",
           "extrn thread_push_stack",
-          "extrn printf"
+          "extrn channel_new"
         ]
     strings =
       "section '.rodata'\n"

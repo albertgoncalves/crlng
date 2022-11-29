@@ -8,13 +8,11 @@ public SCHED_RBP
 
 public receive
 public send
-public kill
 
 extrn stderr
 extrn setlinebuf
 
 extrn scheduler
-extrn _main_thread_yield_
 
 extrn thread_new
 extrn thread_kill
@@ -25,6 +23,8 @@ extrn channel_ready
 extrn channel_push_data
 extrn channel_push_wait
 extrn channel_pop_data
+
+extrn _main_thread_yield_
 
 section '.rodata'
     PING db " - ping -", 0xA, 0
@@ -38,12 +38,6 @@ section '.bss' writeable
 
 section '.text' executable
 
-    macro JUMP_SCHED {
-        mov     rsp, qword [SCHED_RSP]
-        mov     rbp, qword [SCHED_RBP]
-        jmp     scheduler
-    }
-
     macro LOAD_THREAD_STACK {
         mov     rax, [THREAD]
         mov     rsp, [rax + 8]       ; NOTE: If the `Thread` struct is
@@ -55,13 +49,10 @@ section '.text' executable
         mov     qword [rax + 8], rsp
         mov     qword [rax + (8 * 2)], rbp ; NOTE: Stash stack pointers.
         mov     qword [rax], address       ; NOTE: Stash resume address.
-        JUMP_SCHED
-    }
 
-    macro KILL_THREAD {
-        mov     rdi, [THREAD]
-        call    thread_kill
-        JUMP_SCHED
+        mov     rsp, qword [SCHED_RSP]
+        mov     rbp, qword [SCHED_RBP]
+        jmp     scheduler
     }
 
 
@@ -94,12 +85,6 @@ section '.text' executable
     send_yield:
         LOAD_THREAD_STACK
         ret
-
-
-    kill:
-        mov     rdi, [THREAD]
-        call    thread_kill
-        JUMP_SCHED
 
 
     main:
