@@ -48,8 +48,8 @@ fasm "$WD/src/runtime.asm" "$WD/build/runtime_asm.o" &
         hlint "$x"
         ormolu -m inplace "$x"
     done
-    time ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs"
-    "$WD/bin/com" "$WD/build/main.asm"
+    ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs"
+    "$WD/bin/com" "$WD/ex/ping_pong.crl" "$WD/build/main.asm"
     fasm "$WD/build/main.asm" "$WD/build/main_asm.o"
 ) &
 

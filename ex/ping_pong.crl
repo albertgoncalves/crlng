@@ -1,0 +1,30 @@
+ping_pong in out done message {
+    let n {
+        (receive in)
+    }
+    if (= n 0) {
+        (send done "Done!")
+        (kill)
+    } else {
+        (printf "%s\n" message)
+        (send out (- n 1))
+        (ping_pong in out done message)
+    }
+}
+
+main_thread {
+    let ping {
+        (channel_new)
+    }
+    let pong {
+        (channel_new)
+    }
+    let done {
+        (channel_new)
+    }
+    (spawn ping_pong ping pong done " - ping -")
+    (spawn ping_pong pong ping done " - pong -")
+    (send ping 5)
+    (printf "%s\n" (receive done))
+    (kill)
+}

@@ -8,6 +8,12 @@
 !scripts/
 !*.sh
 
+!ex/
+!*.crl
+
+!vim/
+!*.vim
+
 !src/
 !*.asm
 !*.c
