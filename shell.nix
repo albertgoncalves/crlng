@@ -3,6 +3,7 @@ mkShell {
     buildInputs = [
         ghc
         hlint
+        mold
         ormolu
         shellcheck
     ];

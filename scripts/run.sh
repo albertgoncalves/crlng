@@ -38,18 +38,25 @@ flags_c=(
     -Wno-pointer-arith
 )
 
-for x in "$WD/src"/*.hs; do
-    hlint "$x"
-    ormolu -m inplace "$x"
+fasm "$WD/src/runtime.asm" "$WD/build/runtime_asm.o" &
+(
+    clang-format -i -verbose "$WD/src/"runtime.c
+    clang "${flags_c[@]}" -o "$WD/build/runtime_c.o" "$WD/src/runtime.c"
+) &
+(
+    for x in "$WD/src"/*.hs; do
+        hlint "$x"
+        ormolu -m inplace "$x"
+    done
+    time ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs"
+    "$WD/bin/com" "$WD/build/main.asm"
+    fasm "$WD/build/main.asm" "$WD/build/main_asm.o"
+) &
+
+for _ in $(jobs -p); do
+    wait -n
 done
-clang-format -i -verbose "$WD/src/"runtime.c
 
-ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs"
-"$WD/bin/com" > "$WD/build/main.asm"
-
-clang "${flags_c[@]}" -o "$WD/build/runtime_c.o" "$WD/src/runtime.c"
-fasm "$WD/src/runtime.asm" "$WD/build/runtime_asm.o"
-fasm "$WD/build/main.asm" "$WD/build/main_asm.o"
 mold -run clang -no-pie -o "$WD/bin/run" "$WD/build/runtime_c.o" \
     "$WD/build/main_asm.o" "$WD/build/runtime_asm.o"
 "$WD/bin/run" || echo "$?"
