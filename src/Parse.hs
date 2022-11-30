@@ -65,15 +65,15 @@ ident = token $ do
     f x = isLower x || x == '_'
 
 operator :: ReadP String
-operator = token $ (: []) <$> firstChoice [char '-', char '=']
+operator = token $ (: []) <$> firstChoice (map char "=+-")
 
 exprCall :: ReadP Expr
 exprCall = do
   _ <- token $ char '('
-  funcLabel <- firstChoice [operator, ident]
+  label <- firstChoice [operator, ident]
   args <- many expr
   _ <- token $ char ')'
-  return $ ExprCall funcLabel args
+  return $ ExprCall False label args
 
 exprIfElse :: ReadP Expr
 exprIfElse = do
@@ -112,10 +112,22 @@ stmtLet = do
 stmt :: ReadP Stmt
 stmt = firstChoice [stmtLet, StmtEffect <$> expr]
 
+tailCall :: Expr -> Expr
+tailCall (ExprCall False label args) = ExprCall True label args
+tailCall
+  (ExprIfElse cond (Scope bodyTrue exprTrue) (Scope bodyFalse exprFalse)) =
+    ExprIfElse
+      cond
+      (Scope bodyTrue $ tailCall exprTrue)
+      (Scope bodyFalse $ tailCall exprFalse)
+tailCall (ExprCall True _ _) = undefined
+tailCall e = e
+
 func :: ReadP Func
 func = do
   (label : args) <- many1 ident
-  Func label args <$> scope
+  (Scope body returnExpr) <- scope
+  return $ Func label args (Scope body $ tailCall returnExpr)
 
 parse :: String -> [Func]
 parse = fst . head . readP_to_S (many1 func <* space <* eof)

@@ -6,7 +6,7 @@ data Expr
   = ExprInt Int
   | ExprStr String
   | ExprVar String
-  | ExprCall String [Expr]
+  | ExprCall Bool String [Expr]
   | ExprIfElse Expr Scope Scope
 
 data Stmt
@@ -17,13 +17,21 @@ data Scope = Scope [Stmt] Expr
 
 data Func = Func String [String] Scope
 
+showTailCall :: Bool -> String
+showTailCall True = "[tail-call]"
+showTailCall False = ""
+
 showExpr :: Int -> Expr -> String
 showExpr _ (ExprInt int) = show int
 showExpr _ (ExprStr str) = show str
 showExpr _ (ExprVar var) = var
-showExpr _ (ExprCall func []) = printf "(%s)" func
-showExpr n (ExprCall func args) =
-  printf "(%s %s)" func $ unwords $ map (showExpr n) args
+showExpr _ (ExprCall tailCall label []) =
+  unwords [printf "(%s)" label, showTailCall tailCall]
+showExpr n (ExprCall tailCall label args) =
+  unwords
+    [ printf "(%s %s)" label $ unwords $ map (showExpr n) args,
+      showTailCall tailCall
+    ]
 showExpr n (ExprIfElse cond scopeTrue scopeFalse) =
   printf
     "if %s %s else %s"
@@ -35,12 +43,12 @@ indent :: Int -> String
 indent n = replicate (n * 4) ' '
 
 showScope :: Int -> Scope -> String
-showScope n0 (Scope stmts expr) =
+showScope n0 (Scope body expr) =
   printf
     "{\n%s%s}"
     ( unlines $
         map (indent n1 ++) $
-          map (showStmt n1) stmts ++ [showExpr n1 expr]
+          map (showStmt n1) body ++ [showExpr n1 expr]
     )
     (indent n0)
   where

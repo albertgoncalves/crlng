@@ -3,6 +3,7 @@
 module Compile where
 
 import Ast (Expr (..), Func (..), Scope (..), Stmt (..))
+import Control.Exception (assert)
 import Control.Monad.State (State, execState, modify, state)
 import Data.ByteString.Builder (Builder, charUtf8, stringUtf8)
 import Data.Char (ord)
@@ -259,23 +260,27 @@ compileExpr (ExprVar var) = do
 compileExpr (ExprStr str) = do
   label <- compileString str
   setInstPush $ OpLabel label
-compileExpr (ExprCall "-" [exprLeft, exprRight]) = do
+compileExpr (ExprCall _ "+" [exprLeft, exprRight]) = do
+  compileBinOp exprLeft exprRight RegR10 RegR11
+  setInst $ InstAdd (OpReg RegR10) (OpReg RegR11)
+  setInstPush $ OpReg RegR10
+compileExpr (ExprCall _ "-" [exprLeft, exprRight]) = do
   compileBinOp exprLeft exprRight RegR10 RegR11
   setInst $ InstSub (OpReg RegR10) (OpReg RegR11)
   setInstPush $ OpReg RegR10
-compileExpr (ExprCall "-" _) = undefined
-compileExpr (ExprCall "spawn" (ExprVar func : args)) = do
+compileExpr (ExprCall _ "-" _) = undefined
+compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
   setInsts
     [ InstMov (OpReg RegRdi) (OpLabel $ intoYieldLabel func),
       InstCall (OpLabel "thread_new")
     ]
   setInstPush rax
   mapM_ compileSpawnArg args
-compileExpr (ExprCall "printf" args) = do
+compileExpr (ExprCall _ "printf" args) = do
   compileCallArgs args argRegs
   setInsts [InstXor rax rax, InstCall $ OpLabel "printf"]
   setInstPush rax
-compileExpr (ExprCall "kill" []) = do
+compileExpr (ExprCall _ "kill" []) = do
   setInsts
     [ InstMov
         (OpReg RegRdi)
@@ -284,12 +289,17 @@ compileExpr (ExprCall "kill" []) = do
     ]
   setInstsJumpScheduler
   setInstPush $ OpImm 0
-compileExpr (ExprCall func args) = do
+compileExpr (ExprCall False label args) = do
   compileCallArgs args argRegs
-  setInst $ InstCall $ OpLabel func
+  setInst $ InstCall $ OpLabel label
   setInstPush rax
+compileExpr (ExprCall True label args) = do
+  compileCallArgs args argRegs
+  setInst . InstAdd (OpReg RegRsp) . OpImm . negate =<< getRsp
+  setInst $ InstJmp $ OpLabel label
+  setInstPush $ OpImm 0
 compileExpr
-  (ExprIfElse (ExprCall "=" [exprLeft, exprRight]) scopeTrue scopeFalse) = do
+  (ExprIfElse (ExprCall _ "=" [exprLeft, exprRight]) scopeTrue scopeFalse) = do
     labelElse <- printf "_else_%d_" <$> nextK
     labelEnd <- printf "_end_%d_" <$> nextK
     compileBinOp exprLeft exprRight RegR10 RegR11
@@ -307,10 +317,10 @@ compileExpr (ExprIfElse {}) = undefined
 
 compileScope :: Scope -> State Compiler ()
 compileScope (Scope [] expr) = compileExpr expr
-compileScope (Scope stmts expr) = do
+compileScope (Scope body expr) = do
   pushLocals
   rspPre <- getRsp
-  mapM_ compileStmt stmts
+  mapM_ compileStmt body
   rspPost <- getRsp
   compileExpr expr
   setInstPop $ Just rax
@@ -338,6 +348,7 @@ compileFunc :: Func -> State Compiler ()
 compileFunc (Func label args scope) = do
   pushLocals
   rspPre <- getRsp
+  assert (rspPre == 0) $ return ()
   setInst $ InstLabel label
   compileFuncArgs args argRegs
   compileYield label
