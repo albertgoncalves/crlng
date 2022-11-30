@@ -368,14 +368,25 @@ optimizePushPop (InstPush _ : InstAdd (OpReg RegRsp) (OpImm 8) : insts) =
   optimizePushPop insts
 optimizePushPop (inst : insts) = inst : optimizePushPop insts
 
-optimize :: State Compiler ()
-optimize = modify $ \c -> c {compilerInsts = optimizePushPop $ compilerInsts c}
+optimizeUnreachable :: [Inst] -> [Inst]
+optimizeUnreachable [] = []
+optimizeUnreachable (jump@(InstJmp _) : insts@(InstLabel _ : _)) =
+  jump : optimizeUnreachable insts
+optimizeUnreachable (jump@(InstJmp _) : _ : insts) =
+  optimizeUnreachable $ jump : insts
+optimizeUnreachable (InstRet : insts@(InstLabel _ : _)) =
+  InstRet : optimizeUnreachable insts
+optimizeUnreachable (InstRet : _ : insts) =
+  optimizeUnreachable $ InstRet : insts
+optimizeUnreachable (inst : insts) = inst : optimizeUnreachable insts
+
+optimize :: [Inst] -> [Inst]
+optimize = optimizePushPop . optimizeUnreachable
 
 compileFuncs :: [Func] -> State Compiler ()
 compileFuncs funcs = do
   mapM_ compileFunc funcs
-  modify $ \c -> c {compilerInsts = reverse $ compilerInsts c}
-  optimize
+  modify $ \c -> c {compilerInsts = optimize $ reverse $ compilerInsts c}
 
 compile :: [Func] -> Builder
 compile funcs = header <> strings <> insts
