@@ -346,6 +346,8 @@ compileFuncArgs (arg : args) (reg : regs) = do
 
 compileFunc :: Func -> State Compiler ()
 compileFunc (Func label args scope) = do
+  localsPre <- state $ \c -> (compilerLocals c, c)
+  assert (null localsPre) $ return ()
   pushLocals
   rspPre <- getRsp
   assert (rspPre == 0) $ return ()
