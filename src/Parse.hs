@@ -1,12 +1,12 @@
 module Parse where
 
 import Ast (Expr (..), Func (..), Scope (..), Stmt (..))
-import Control.Monad (void)
-import Data.Char (isDigit, isLower)
+import Data.Char (isDigit, isLower, isSpace)
 import Text.ParserCombinators.ReadP
   ( ReadP,
     char,
     eof,
+    get,
     look,
     many,
     many1,
@@ -24,15 +24,29 @@ firstChoice [] = pfail
 firstChoice [p] = p
 firstChoice (p : ps) = p <++ firstChoice ps
 
-comment :: ReadP ()
-comment = char '#' *> void (munch (/= '\n') *> char '\n')
+dropThru :: String -> ReadP ()
+dropThru [] = return ()
+dropThru (c : cs) = do
+  match <- (c ==) <$> get
+  if match
+    then dropThru cs
+    else dropThru (c : cs)
 
 space :: ReadP ()
 space = do
   rest <- look
   case rest of
-    (c : _) | c `elem` " \n#" -> do
-      void (satisfy (`elem` " \n")) <++ comment
+    ('/' : '*' : _) -> do
+      _ <- get
+      _ <- get
+      dropThru "*/"
+      space
+    ('#' : _) -> do
+      _ <- get
+      _ <- munch (/= '\n') *> char '\n'
+      space
+    (c : _) | isSpace c -> do
+      _ <- get
       space
     _ -> return ()
 

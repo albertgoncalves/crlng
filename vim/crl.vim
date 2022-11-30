@@ -28,7 +28,9 @@ syn keyword Function
     \ channel
     \ printf
 
-syn match Comment "#.*" contains=Todo
 syn keyword Todo FIXME NOTE TODO contained
+
+syn match  Comment "#.*"                 contains=Todo
+syn region Comment start="/\*" end="\*/" contains=Todo
 
 let b:current_syntax = "crl"

@@ -18,7 +18,7 @@ data Scope = Scope [Stmt] Expr
 data Func = Func String [String] Scope
 
 showTailCall :: Bool -> String
-showTailCall True = "[tail-call]"
+showTailCall True = "/* tail-call */"
 showTailCall False = ""
 
 showExpr :: Int -> Expr -> String
