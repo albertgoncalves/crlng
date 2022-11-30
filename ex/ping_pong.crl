@@ -12,14 +12,6 @@ ping_pong in out done message {
     }
 }
 
-fib n a b {
-    if (= n 0) {
-        a
-    } else {
-        (fib (- n 1) b (+ a b))
-    }
-}
-
 main_thread {
     let ping {
         (channel_new)
@@ -34,6 +26,5 @@ main_thread {
     (spawn ping_pong pong ping done " - pong -")
     (send ping 5)
     (printf "%s\n" (receive done))
-    (printf "%lu\n" (fib 50 0 1))
     (kill)
 }

@@ -1,0 +1,12 @@
+main_thread {
+    (printf "%lu\n" (fib 50 0 1))
+    (kill)
+}
+
+fib n a b {
+    if (= n 0) {
+        a
+    } else {
+        (fib (- n 1) b (+ a b))
+    }
+}
