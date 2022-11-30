@@ -15,21 +15,13 @@ extrn setlinebuf
 extrn scheduler
 
 extrn thread_new
-extrn thread_kill
-extrn thread_push_stack
 
-extrn channel_new
 extrn channel_ready
 extrn channel_push_data
 extrn channel_push_wait
 extrn channel_pop_data
 
 extrn _main_thread_yield_
-
-section '.rodata'
-    PING db " - ping -", 0xA, 0
-    PONG db " - pong -", 0xA, 0
-    DONE db "Done!", 0xA, 0
 
 section '.bss' writeable
     SCHED_RSP rq 1
@@ -60,7 +52,6 @@ section '.text' executable
         push    rdi
         YIELD   receive_yield
     receive_yield:
-
         LOAD_THREAD_STACK
         mov     rdi, [rsp]
         call    channel_ready
