@@ -196,9 +196,17 @@ void thread_kill(Thread* thread) {
     EXIT_IF(!QUEUE.last);
     EXIT_IF(QUEUE.len == 0);
     EXIT_IF(thread->next);
-    EXIT_IF(!thread->prev);
     EXIT_IF(QUEUE.last != thread);
     EXIT_IF(thread->status != READY);
+    if (!thread->prev) {
+        EXIT_IF((void*)thread != &THREADS[0]);
+        EXIT_IF(QUEUE.len != 1);
+        EXIT_IF(QUEUE.len_ready != 1);
+#if VERBOSE
+        printf("  [ Killing last thread (%p) ]\n", (void*)thread);
+#endif
+        _exit(OK);
+    }
 #if VERBOSE
     printf("  [ Killing thread (%p) ]\n", (void*)thread);
 #endif
