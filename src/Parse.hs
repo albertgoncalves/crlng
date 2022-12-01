@@ -1,6 +1,7 @@
 module Parse where
 
 import Ast (Expr (..), Func (..), Scope (..), Stmt (..))
+import Control.Monad (void)
 import Data.Char (isDigit, isLower, isSpace)
 import Text.ParserCombinators.ReadP
   ( ReadP,
@@ -26,11 +27,11 @@ firstChoice (p : ps) = p <++ firstChoice ps
 
 dropThru :: String -> ReadP ()
 dropThru [] = return ()
-dropThru (c : cs) = do
+dropThru s@(c : cs) = do
   match <- (c ==) <$> get
   if match
-    then dropThru cs
-    else dropThru (c : cs)
+    then void (string cs) <++ dropThru s
+    else dropThru s
 
 space :: ReadP ()
 space = do
