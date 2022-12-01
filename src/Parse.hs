@@ -9,8 +9,6 @@ import Text.ParserCombinators.ReadP
     eof,
     get,
     look,
-    many,
-    many1,
     munch,
     munch1,
     pfail,
@@ -20,10 +18,19 @@ import Text.ParserCombinators.ReadP
     (<++),
   )
 
-firstChoice :: [ReadP a] -> ReadP a
-firstChoice [] = pfail
-firstChoice [p] = p
-firstChoice (p : ps) = p <++ firstChoice ps
+many :: ReadP a -> ReadP [a]
+many p = many1 p <++ return []
+
+many1 :: ReadP a -> ReadP [a]
+many1 p = do
+  x <- p
+  xs <- many p
+  return $ x : xs
+
+choice :: [ReadP a] -> ReadP a
+choice [] = pfail
+choice [p] = p
+choice (p : ps) = p <++ choice ps
 
 dropThru :: String -> ReadP ()
 dropThru [] = return ()
@@ -62,7 +69,7 @@ str = token $ do
   _ <- char '"'
   s <-
     many $
-      firstChoice
+      choice
         [ '\n' <$ string "\\n",
           '\\' <$ string "\\\\",
           '"' <$ string "\\\"",
@@ -78,12 +85,12 @@ ident = token $ do
   return $ c : cs
 
 operator :: ReadP String
-operator = token $ (: []) <$> firstChoice (map char "=+-")
+operator = token $ (: []) <$> choice (map char "=+-")
 
 exprCall :: ReadP Expr
 exprCall = do
   _ <- token $ char '('
-  label <- firstChoice [operator, ident]
+  label <- choice [operator, ident]
   args <- many expr
   _ <- token $ char ')'
   return $ ExprCall False label args
@@ -98,7 +105,7 @@ exprIfElse = do
 
 expr :: ReadP Expr
 expr =
-  firstChoice
+  choice
     [ exprIfElse,
       exprCall,
       ExprInt <$> int,
@@ -123,7 +130,7 @@ stmtLet = do
   StmtLet var <$> scope
 
 stmt :: ReadP Stmt
-stmt = firstChoice [stmtLet, StmtEffect <$> expr]
+stmt = choice [stmtLet, StmtEffect <$> expr]
 
 tailCall :: Expr -> Expr
 tailCall (ExprCall False label args) = ExprCall True label args
