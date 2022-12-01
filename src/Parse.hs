@@ -73,11 +73,9 @@ str = token $ do
 
 ident :: ReadP String
 ident = token $ do
-  c <- satisfy f
-  cs <- munch (\x -> f x || isDigit x)
+  c <- satisfy isLower
+  cs <- munch (\x -> isLower x || isDigit x || x == '_')
   return $ c : cs
-  where
-    f x = isLower x || x == '_'
 
 operator :: ReadP String
 operator = token $ (: []) <$> firstChoice (map char "=+-")
