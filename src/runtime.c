@@ -89,7 +89,7 @@ typedef struct {
 #define CAP_STACKS   (1 << 4)
 #define CAP_THREADS  (1 << 4)
 #define CAP_CHANNELS (1 << 4)
-#define CAP_DATAS    (1 << 4)
+#define CAP_DATAS    (1 << 5)
 #define CAP_WAITS    (1 << 4)
 
 typedef struct {

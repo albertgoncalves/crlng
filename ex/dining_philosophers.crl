@@ -1,0 +1,55 @@
+dine left_fork right_fork done {
+    (printf " - waiting for left fork -\n")
+    (receive left_fork)
+
+    (printf " - waiting for right fork -\n")
+    (receive right_fork)
+
+    (printf " - dining -\n")
+
+    (printf " - returning left fork -\n")
+    (send left_fork 0)
+
+    (printf " - returning right fork -\n")
+    (send right_fork 0)
+
+    (printf " - thinking -\n")
+    (send done 0)
+    (kill)
+}
+
+main_thread {
+    let fork0 { (channel_new) }
+    let fork1 { (channel_new) }
+    let fork2 { (channel_new) }
+    let fork3 { (channel_new) }
+    let fork4 { (channel_new) }
+
+    (send fork0 0)
+    (send fork1 0)
+    (send fork2 0)
+    (send fork3 0)
+    (send fork4 0)
+
+    let done0 { (channel_new) }
+    let done1 { (channel_new) }
+    let done2 { (channel_new) }
+    let done3 { (channel_new) }
+    let done4 { (channel_new) }
+
+    (spawn dine fork0 fork1 done0)
+    (spawn dine fork1 fork2 done1)
+    (spawn dine fork2 fork3 done2)
+    (spawn dine fork3 fork4 done3)
+
+    (spawn dine fork0 fork4 done4)
+
+    (receive done0)
+    (receive done1)
+    (receive done2)
+    (receive done3)
+    (receive done4)
+
+    (printf "Done!\n")
+    (kill)
+}
