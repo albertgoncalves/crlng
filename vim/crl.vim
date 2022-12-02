@@ -25,7 +25,7 @@ syn keyword Function
     \ kill
     \ send
     \ receive
-    \ channel
+    \ channel_new
     \ printf
 
 syn keyword Todo FIXME NOTE TODO contained
