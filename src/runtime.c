@@ -22,6 +22,13 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
 
 #define VERBOSE 0
 
+#define EXIT(code)      \
+    do {                \
+        fflush(stdout); \
+        fflush(stderr); \
+        _exit(code);    \
+    } while (0)
+
 #if 1
     #define EXIT_IF(condition)            \
         do {                              \
@@ -31,7 +38,7 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
                        __func__,          \
                        __LINE__,          \
                        #condition);       \
-                _exit(ERROR);             \
+                EXIT(ERROR);              \
             }                             \
         } while (0)
 #else
@@ -205,7 +212,7 @@ void thread_kill(Thread* thread) {
 #if VERBOSE
         printf("  [ Killing last thread (%p) ]\n", (void*)thread);
 #endif
-        _exit(OK);
+        EXIT(OK);
     }
 #if VERBOSE
     printf("  [ Killing thread (%p) ]\n", (void*)thread);
@@ -355,13 +362,13 @@ __attribute__((noreturn)) void scheduler(void) {
 #if VERBOSE
         printf("  [ Main thread is dead ]\n");
 #endif
-        _exit(OK);
+        EXIT(OK);
     }
     if (QUEUE.len_ready == 0) {
 #if VERBOSE
         printf("  [ Deadlock ]\n");
 #endif
-        _exit(ERROR);
+        EXIT(ERROR);
     }
 #if VERBOSE
     printf("  [ %u thread(s) alive, %u thread(s) ready ]\n",
@@ -393,5 +400,5 @@ __attribute__((noreturn)) void scheduler(void) {
     printf("  [ Running thread (%p) ]\n", (void*)THREAD);
 #endif
     THREAD->resume();
-    _exit(ERROR);
+    EXIT(ERROR);
 }

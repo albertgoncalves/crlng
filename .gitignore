@@ -6,6 +6,7 @@
 !.clang-format
 
 !scripts/
+!*.py
 !*.sh
 
 !ex/

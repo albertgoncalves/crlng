@@ -5,6 +5,7 @@ mkShell {
         hlint
         mold
         ormolu
+        python3Packages.flake8
         shellcheck
     ];
     shellHook = ''
