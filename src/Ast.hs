@@ -17,21 +17,16 @@ data Scope = Scope [Stmt] Expr
 
 data Func = Func String [String] Scope
 
-showTailCall :: Bool -> String
-showTailCall True = "/* tail-call */"
-showTailCall False = ""
-
 showExpr :: Int -> Expr -> String
 showExpr _ (ExprInt int) = show int
 showExpr _ (ExprStr str) = show str
 showExpr _ (ExprVar var) = var
-showExpr _ (ExprCall tailCall label []) =
-  unwords [printf "(%s)" label, showTailCall tailCall]
-showExpr n (ExprCall tailCall label args) =
-  unwords
-    [ printf "(%s %s)" label $ unwords $ map (showExpr n) args,
-      showTailCall tailCall
-    ]
+showExpr _ (ExprCall True label []) = printf "(/* tail-call */ %s)" label
+showExpr _ (ExprCall False label []) = printf "(%s)" label
+showExpr n (ExprCall True label args) =
+  printf "(/* tail-call */ %s %s)" label $ unwords $ map (showExpr n) args
+showExpr n (ExprCall False label args) =
+  printf "(%s %s)" label $ unwords $ map (showExpr n) args
 showExpr n (ExprIfElse cond scopeTrue scopeFalse) =
   printf
     "if %s %s else %s"
