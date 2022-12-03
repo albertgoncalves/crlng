@@ -1,19 +1,19 @@
-dine left_fork right_fork done {
-    (printf " - waiting for left fork -\n")
+philosopher left_fork right_fork done {
+    (printf " [ %p ] waiting for left fork\n" (self))
     (receive left_fork)
 
-    (printf " - waiting for right fork -\n")
+    (printf " [ %p ] waiting for right fork\n" (self))
     (receive right_fork)
 
-    (printf " - dining -\n")
+    (printf " [ %p ] dining\n" (self))
 
-    (printf " - returning left fork -\n")
+    (printf " [ %p ] returning left fork\n" (self))
     (send left_fork 0)
 
-    (printf " - returning right fork -\n")
+    (printf " [ %p ] returning right fork\n" (self))
     (send right_fork 0)
 
-    (printf " - thinking -\n")
+    (printf " [ %p ] thinking\n" (self))
     (send done 0)
     (kill)
 }
@@ -37,12 +37,12 @@ main_thread {
     let done3 { (channel_new) }
     let done4 { (channel_new) }
 
-    (spawn dine fork0 fork1 done0)
-    (spawn dine fork1 fork2 done1)
-    (spawn dine fork2 fork3 done2)
-    (spawn dine fork3 fork4 done3)
+    (spawn philosopher fork0 fork1 done0)
+    (spawn philosopher fork1 fork2 done1)
+    (spawn philosopher fork2 fork3 done2)
+    (spawn philosopher fork3 fork4 done3)
 
-    (spawn dine fork0 fork4 done4)
+    (spawn philosopher fork0 fork4 done4)
 
     (receive done0)
     (receive done1)

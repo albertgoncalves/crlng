@@ -25,6 +25,7 @@ syn keyword Function
     \ kill
     \ send
     \ receive
+    \ self
     \ channel_new
     \ printf
 

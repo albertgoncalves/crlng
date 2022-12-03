@@ -269,6 +269,8 @@ compileExpr (ExprCall _ "-" [exprLeft, exprRight]) = do
   setInst $ InstSub (OpReg RegR10) (OpReg RegR11)
   setInstPush $ OpReg RegR10
 compileExpr (ExprCall _ "-" _) = undefined
+compileExpr (ExprCall _ "self" _) =
+  setInstPush $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
 compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
   setInsts
     [ InstMov (OpReg RegRdi) (OpLabel $ intoYieldLabel func),
