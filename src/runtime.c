@@ -47,6 +47,17 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
         } while (0)
 #endif
 
+#define CAP_BUFFER   (1 << 10)
+#define CAP_STACKS   (1 << 3)
+#define CAP_THREADS  CAP_STACKS
+#define CAP_CHANNELS (1 << 4)
+#define CAP_DATAS    (1 << 5)
+#define CAP_WAITS    (1 << 3)
+
+typedef struct {
+    void* buffer[CAP_BUFFER];
+} Stack;
+
 typedef enum {
     DEAD = 0,
     PAUSED,
@@ -59,6 +70,7 @@ struct Thread {
     void (*resume)(void);
     void**       rsp;
     void**       rbp;
+    Stack*       stack;
     Thread*      prev;
     Thread*      next;
     ThreadStatus status;
@@ -92,17 +104,6 @@ typedef struct {
     ChannelWait* wait_last;
 } Channel;
 
-#define CAP_BUFFER   (1 << 12)
-#define CAP_STACKS   (1 << 4)
-#define CAP_THREADS  (1 << 4)
-#define CAP_CHANNELS (1 << 4)
-#define CAP_DATAS    (1 << 5)
-#define CAP_WAITS    (1 << 4)
-
-typedef struct {
-    void* buffer[CAP_BUFFER];
-} Stack;
-
 static Stack       STACKS[CAP_STACKS];
 static Thread      THREADS[CAP_THREADS];
 static Channel     CHANNELS[CAP_CHANNELS];
@@ -130,6 +131,48 @@ Bool     channel_ready(Channel*);
 void     channel_push_data(Channel*, void*);
 void     channel_push_wait(Channel*, Thread*);
 void*    channel_pop_data(Channel*);
+
+static Stack* alloc_stack(void) {
+    EXIT_IF(CAP_STACKS <= LEN_STACKS);
+    return &STACKS[LEN_STACKS++];
+}
+
+static Thread* alloc_thread(void) {
+    EXIT_IF(CAP_THREADS <= LEN_THREADS);
+    return &THREADS[LEN_THREADS++];
+}
+
+static Channel* alloc_channel(void) {
+    EXIT_IF(CAP_CHANNELS <= LEN_CHANNELS);
+    return &CHANNELS[LEN_CHANNELS++];
+}
+
+static ChannelWait* alloc_wait(void) {
+    EXIT_IF(CAP_WAITS <= LEN_WAITS);
+    return &WAITS[LEN_WAITS++];
+}
+
+static ChannelData* alloc_data(void) {
+    EXIT_IF(CAP_DATAS <= LEN_DATAS);
+    return &DATAS[LEN_DATAS++];
+}
+
+static void free_stack(Stack* stack) {
+    (void)stack;
+}
+
+static void free_thread(Thread* thread) {
+    free_stack(thread->stack);
+    (void)thread;
+}
+
+static void free_wait(ChannelWait* wait) {
+    (void)wait;
+}
+
+static void free_data(ChannelData* data) {
+    (void)data;
+}
 
 static void queue_push(Thread* thread) {
     EXIT_IF(!thread);
@@ -183,15 +226,15 @@ static Thread* queue_pop(void) {
 
 Thread* thread_new(void (*resume)(void)) {
     EXIT_IF(!resume);
-    EXIT_IF(CAP_THREADS <= LEN_THREADS);
 #if VERBOSE
     printf("  [ Creating thread ]\n");
 #endif
-    Thread* thread = &THREADS[LEN_THREADS++];
+    Thread* thread = alloc_thread();
     thread->resume = resume;
-    void** stack = &STACKS[LEN_STACKS++].buffer[CAP_BUFFER];
-    thread->rbp = stack;
-    thread->rsp = stack;
+    Stack* stack = alloc_stack();
+    thread->stack = stack;
+    thread->rbp = &stack->buffer[CAP_BUFFER];
+    thread->rsp = &stack->buffer[CAP_BUFFER];
     thread->status = READY;
     queue_push(thread);
     return thread;
@@ -222,6 +265,7 @@ void thread_kill(Thread* thread) {
     --QUEUE.len;
     --QUEUE.len_ready;
     thread->status = DEAD;
+    free_thread(thread);
 }
 
 void thread_push_stack(Thread* thread, void* data) {
@@ -238,11 +282,10 @@ void thread_push_stack(Thread* thread, void* data) {
 }
 
 Channel* channel_new(void) {
-    EXIT_IF(CAP_CHANNELS <= LEN_CHANNELS);
 #if VERBOSE
     printf("  [ Creating channel ]\n");
 #endif
-    Channel* channel = &CHANNELS[LEN_CHANNELS++];
+    Channel* channel = alloc_channel();
     channel->data_first = NULL;
     channel->data_last = NULL;
     channel->wait_first = NULL;
@@ -253,14 +296,13 @@ Channel* channel_new(void) {
 void channel_push_wait(Channel* channel, Thread* thread) {
     EXIT_IF(!channel);
     EXIT_IF(!thread);
-    EXIT_IF(CAP_WAITS <= LEN_WAITS);
     EXIT_IF(QUEUE.len_ready == 0);
 #if VERBOSE
     printf("  [ Adding thread (%p) to wait list ]\n"
            "  [ Pausing thread ]\n",
            (void*)thread);
 #endif
-    ChannelWait* wait = &WAITS[LEN_WAITS++];
+    ChannelWait* wait = alloc_wait();
     wait->thread = thread;
     wait->next = NULL;
     thread->status = PAUSED;
@@ -285,14 +327,16 @@ static void channel_pop_wait(Channel* channel) {
 #if VERBOSE
     printf("  [ Popping thread from wait list ]\n");
 #endif
-    channel->wait_first->thread->status = READY;
+    ChannelWait* channel_wait = channel->wait_first;
+    channel_wait->thread->status = READY;
     ++QUEUE.len_ready;
-    if (channel->wait_first == channel->wait_last) {
+    if (channel_wait == channel->wait_last) {
         channel->wait_first = NULL;
         channel->wait_last = NULL;
     } else {
-        channel->wait_first = channel->wait_first->next;
+        channel->wait_first = channel_wait->next;
     }
+    free_wait(channel_wait);
 }
 
 Bool channel_ready(Channel* channel) {
@@ -308,7 +352,6 @@ Bool channel_ready(Channel* channel) {
 
 void channel_push_data(Channel* channel, void* data) {
     EXIT_IF(!channel);
-    EXIT_IF(CAP_DATAS <= LEN_DATAS);
 #if VERBOSE
     if (data) {
         printf("  [ Pushing message (%p) into channel (%p) ]\n",
@@ -319,7 +362,7 @@ void channel_push_data(Channel* channel, void* data) {
                (void*)channel);
     }
 #endif
-    ChannelData* channel_data = &DATAS[LEN_DATAS++];
+    ChannelData* channel_data = alloc_data();
     channel_data->data = data;
     channel_data->next = NULL;
     if (!channel->data_first) {
@@ -343,13 +386,15 @@ void* channel_pop_data(Channel* channel) {
 #if VERBOSE
     printf("  [ Popping data from channel (%p) ]\n", (void*)channel);
 #endif
-    void* data = channel->data_first->data;
-    if (channel->data_first == channel->data_last) {
+    ChannelData* channel_data = channel->data_first;
+    void*        data = channel_data->data;
+    if (channel_data == channel->data_last) {
         channel->data_first = NULL;
         channel->data_last = NULL;
     } else {
-        channel->data_first = channel->data_first->next;
+        channel->data_first = channel_data->next;
     }
+    free_data(channel_data);
     return data;
 }
 
