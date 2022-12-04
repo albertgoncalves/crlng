@@ -1,0 +1,9 @@
+main_thread {
+    (overflow 0)
+    (kill)
+}
+
+overflow n {
+    (printf "%lu\n" n)
+    (+ (overflow (+ n 1)) 0)
+}

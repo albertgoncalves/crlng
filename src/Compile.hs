@@ -355,6 +355,7 @@ compileFunc (Func label args scope) = do
   assert (rspPre == 0) $ return ()
   setInst $ InstLabel label
   compileFuncArgs args argRegs
+  setInst $ InstCall $ OpLabel "stack_overflow"
   compileYield label
   compileScope scope
   setInstPop $ Just rax
@@ -411,6 +412,7 @@ compile funcs =
           "extrn scheduler",
           "extrn receive",
           "extrn send",
+          "extrn stack_overflow",
           "extrn thread_new",
           "extrn thread_kill",
           "extrn thread_push_stack",

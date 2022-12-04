@@ -8,6 +8,7 @@ public SCHED_RBP
 
 public receive
 public send
+public stack_overflow
 
 extrn stderr
 extrn setlinebuf
@@ -49,6 +50,12 @@ section '.text' executable
         jmp     scheduler
     }
 
+    macro EXIT {
+        mov     rdi, 1
+        mov     rax, 60
+        syscall
+    }
+
 
     receive:
         push    rdi
@@ -77,6 +84,18 @@ section '.text' executable
         YIELD   send_yield
     send_yield:
         LOAD_THREAD_STACK
+        ret
+
+
+    stack_overflow:
+        mov     r10, rsp
+        mov     rax, [THREAD]
+        mov     r11, [rax + (8 * 3)]
+        sub     r10, 2048
+        cmp     r10, r11
+        jg      stack_overflow_ret
+        EXIT
+    stack_overflow_ret:
         ret
 
 
