@@ -393,7 +393,10 @@ compileFuncs funcs = do
   modify $ \c -> c {compilerInsts = optimize $ reverse $ compilerInsts c}
 
 compile :: [Func] -> Builder
-compile funcs = header <> strings <> insts
+compile funcs =
+  if null (compilerStrings program)
+    then header <> insts
+    else header <> strings <> insts
   where
     program = execState (compileFuncs funcs) newCompiler
     header =
