@@ -14,6 +14,8 @@ extrn setlinebuf
 
 extrn scheduler
 
+extrn memory_init
+
 extrn thread_new
 
 extrn channel_ready
@@ -84,6 +86,8 @@ section '.text' executable
 
         mov     rdi, [stderr]
         call    setlinebuf
+
+        call    memory_init
 
         mov     rdi, _main_thread_yield_
         call    thread_new

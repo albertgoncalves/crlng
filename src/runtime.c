@@ -52,7 +52,7 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
 #define CAP_STACKS   (1 << 3)
 #define CAP_THREADS  CAP_STACKS
 #define CAP_CHANNELS (1 << 4)
-#define CAP_DATAS    (1 << 5)
+#define CAP_DATAS    (1 << 4)
 #define CAP_WAITS    (1 << 3)
 
 typedef struct {
@@ -105,23 +105,31 @@ typedef struct {
     ChannelWait* wait_last;
 } Channel;
 
+static Channel CHANNELS[CAP_CHANNELS];
+static u32     LEN_CHANNELS = 0;
+
 static Stack       STACKS[CAP_STACKS];
 static Thread      THREADS[CAP_THREADS];
-static Channel     CHANNELS[CAP_CHANNELS];
 static ChannelData DATAS[CAP_DATAS];
 static ChannelWait WAITS[CAP_WAITS];
 
-static u32 LEN_STACKS = 0;
-static u32 LEN_THREADS = 0;
-static u32 LEN_CHANNELS = 0;
-static u32 LEN_DATAS = 0;
-static u32 LEN_WAITS = 0;
+static Stack*       STACK_POOL[CAP_STACKS];
+static Thread*      THREAD_POOL[CAP_THREADS];
+static ChannelData* DATA_POOL[CAP_DATAS];
+static ChannelWait* WAIT_POOL[CAP_WAITS];
+
+static u32 LEN_STACKS = CAP_STACKS;
+static u32 LEN_THREADS = CAP_THREADS;
+static u32 LEN_DATAS = CAP_DATAS;
+static u32 LEN_WAITS = CAP_WAITS;
 
 static ThreadQueue QUEUE = {0};
 
 extern Thread* THREAD;
 
 __attribute__((noreturn)) void scheduler(void);
+
+void memory_init(void);
 
 Thread* thread_new(void (*)(void));
 void    thread_kill(Thread*);
@@ -133,46 +141,64 @@ void     channel_push_data(Channel*, void*);
 void     channel_push_wait(Channel*, Thread*);
 void*    channel_pop_data(Channel*);
 
-static Stack* alloc_stack(void) {
-    EXIT_IF(CAP_STACKS <= LEN_STACKS);
-    return &STACKS[LEN_STACKS++];
-}
-
-static Thread* alloc_thread(void) {
-    EXIT_IF(CAP_THREADS <= LEN_THREADS);
-    return &THREADS[LEN_THREADS++];
-}
-
 static Channel* alloc_channel(void) {
     EXIT_IF(CAP_CHANNELS <= LEN_CHANNELS);
     return &CHANNELS[LEN_CHANNELS++];
 }
 
-static ChannelWait* alloc_wait(void) {
-    EXIT_IF(CAP_WAITS <= LEN_WAITS);
-    return &WAITS[LEN_WAITS++];
+void memory_init(void) {
+#if VERBOSE
+    fprintf(stderr, "  [ Initializing memory ]\n");
+#endif
+    for (u32 i = 0; i < CAP_STACKS; ++i) {
+        STACK_POOL[i] = &STACKS[(CAP_STACKS - 1) - i];
+    }
+    for (u32 i = 0; i < CAP_THREADS; ++i) {
+        THREAD_POOL[i] = &THREADS[(CAP_THREADS - 1) - i];
+    }
+    for (u32 i = 0; i < CAP_DATAS; ++i) {
+        DATA_POOL[i] = &DATAS[(CAP_DATAS - 1) - i];
+    }
+    for (u32 i = 0; i < CAP_WAITS; ++i) {
+        WAIT_POOL[i] = &WAITS[(CAP_WAITS - 1) - i];
+    }
+}
+
+static Stack* alloc_stack(void) {
+    EXIT_IF(LEN_STACKS == 0);
+    return STACK_POOL[--LEN_STACKS];
+}
+
+static Thread* alloc_thread(void) {
+    EXIT_IF(LEN_THREADS == 0);
+    return THREAD_POOL[--LEN_THREADS];
 }
 
 static ChannelData* alloc_data(void) {
-    EXIT_IF(CAP_DATAS <= LEN_DATAS);
-    return &DATAS[LEN_DATAS++];
+    EXIT_IF(LEN_DATAS == 0);
+    return DATA_POOL[--LEN_DATAS];
+}
+
+static ChannelWait* alloc_wait(void) {
+    EXIT_IF(LEN_WAITS == 0);
+    return WAIT_POOL[--LEN_WAITS];
 }
 
 static void free_stack(Stack* stack) {
-    (void)stack;
+    STACK_POOL[LEN_STACKS++] = stack;
 }
 
 static void free_thread(Thread* thread) {
     free_stack(thread->stack);
-    (void)thread;
-}
-
-static void free_wait(ChannelWait* wait) {
-    (void)wait;
+    THREAD_POOL[LEN_THREADS++] = thread;
 }
 
 static void free_data(ChannelData* data) {
-    (void)data;
+    DATA_POOL[LEN_DATAS++] = data;
+}
+
+static void free_wait(ChannelWait* wait) {
+    WAIT_POOL[LEN_WAITS++] = wait;
 }
 
 static void queue_push(Thread* thread) {
