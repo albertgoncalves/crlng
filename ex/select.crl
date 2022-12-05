@@ -1,0 +1,52 @@
+worker_a channel {
+    (send channel 0)
+    (kill)
+}
+
+worker_b channel {
+    (send channel "???")
+    (kill)
+}
+
+select a b {
+    if (= (channel_ready a) 0) {
+        if (= (channel_ready b) 0) {
+            (printf " . received nothing\n")
+        } else {
+            (printf " . received `b`, %s\n" (receive b))
+        }
+    } else {
+        (receive a)
+        (printf " . received `a`\n")
+    }
+}
+
+work n {
+    if (= n 0) {
+        0
+    } else {
+        (work (- n 1))
+    }
+}
+
+main_thread {
+    let a {
+        (channel_new)
+    }
+    let b {
+        (channel_new)
+    }
+
+    (spawn worker_a a)
+    (spawn worker_b b)
+
+    (work 3)
+
+    (select a b)
+    (select a b)
+    (select a b)
+
+    (printf "Done!\n")
+
+    (kill)
+}

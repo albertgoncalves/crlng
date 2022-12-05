@@ -27,6 +27,7 @@ syn keyword Function
     \ receive
     \ self
     \ channel_new
+    \ channel_ready
     \ printf
 
 syn keyword Todo FIXME NOTE TODO contained

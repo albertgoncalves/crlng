@@ -34,6 +34,9 @@ class Tests(TestCase):
             "Done!",
         ]))
 
+    def test_select(self):
+        self.into_test("select", None)
+
 
 if __name__ == "__main__":
     main()

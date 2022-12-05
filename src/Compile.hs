@@ -416,7 +416,8 @@ compile funcs =
           "extrn thread_new",
           "extrn thread_kill",
           "extrn thread_push_stack",
-          "extrn channel_new"
+          "extrn channel_new",
+          "extrn channel_ready"
         ]
     strings =
       "section '.rodata'\n"
