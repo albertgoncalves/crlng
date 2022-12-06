@@ -18,8 +18,10 @@ data Inst
   | InstMov Op Op
   | InstCall Op
   | InstJmp Op
+  | InstJz Op
   | InstJnz Op
   | InstCmp Op Op
+  | InstTest Op Op
   | InstXor Op Op
   | InstAdd Op Op
   | InstSub Op Op
@@ -61,8 +63,11 @@ instance Show Inst where
   show (InstMov opDst opSrc) = printf "\tmov %s, %s" (show opDst) (show opSrc)
   show (InstCall op) = printf "\tcall %s" $ show op
   show (InstJmp op) = printf "\tjmp %s" $ show op
+  show (InstJz op) = printf "\tjz %s" $ show op
   show (InstJnz op) = printf "\tjnz %s" $ show op
   show (InstCmp opDst opSrc) = printf "\tcmp %s, %s" (show opDst) (show opSrc)
+  show (InstTest opDst opSrc) =
+    printf "\ttest %s, %s" (show opDst) (show opSrc)
   show (InstXor opDst opSrc) = printf "\txor %s, %s" (show opDst) (show opSrc)
   show (InstAdd opDst opSrc) = printf "\tadd %s, %s" (show opDst) (show opSrc)
   show (InstSub opDst opSrc) = printf "\tsub %s, %s" (show opDst) (show opSrc)
@@ -300,22 +305,31 @@ compileExpr (ExprCall True label args) = do
   setInst . InstAdd (OpReg RegRsp) . OpImm . negate =<< getRsp
   setInst $ InstJmp $ OpLabel label
   setInstPush $ OpImm 0
-compileExpr
-  (ExprIfElse (ExprCall _ "=" [exprLeft, exprRight]) scopeTrue scopeFalse) = do
-    labelElse <- printf "_else_%d_" <$> nextK
-    labelEnd <- printf "_end_%d_" <$> nextK
-    compileBinOp exprLeft exprRight RegR10 RegR11
-    setInsts
-      [ InstCmp (OpReg RegR10) (OpReg RegR11),
-        InstJnz $ OpLabel labelElse
-      ]
-    rspPre <- getRsp
-    compileScope scopeTrue
-    setRsp rspPre
-    setInsts [InstJmp $ OpLabel labelEnd, InstLabel labelElse]
-    compileScope scopeFalse
-    setInst $ InstLabel labelEnd
-compileExpr (ExprIfElse {}) = undefined
+compileExpr (ExprIfElse cond scopeTrue scopeFalse) = do
+  labelElse <- printf "_else_%d_" <$> nextK
+  labelEnd <- printf "_end_%d_" <$> nextK
+  compileCondition labelElse cond
+  rspPre <- getRsp
+  compileScope scopeTrue
+  setRsp rspPre
+  setInsts [InstJmp $ OpLabel labelEnd, InstLabel labelElse]
+  compileScope scopeFalse
+  setInst $ InstLabel labelEnd
+
+compileCondition :: String -> Expr -> State Compiler ()
+compileCondition label (ExprCall _ "=" [exprLeft, exprRight]) = do
+  compileBinOp exprLeft exprRight RegR10 RegR11
+  setInsts
+    [ InstCmp (OpReg RegR10) (OpReg RegR11),
+      InstJnz $ OpLabel label
+    ]
+compileCondition label expr = do
+  compileExpr expr
+  setInstPop $ Just rax
+  setInsts
+    [ InstTest rax rax,
+      InstJz $ OpLabel label
+    ]
 
 compileScope :: Scope -> State Compiler ()
 compileScope (Scope [] expr) = compileExpr expr

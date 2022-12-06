@@ -9,15 +9,15 @@ worker_b channel {
 }
 
 select a b {
-    if (= (channel_ready a) 0) {
-        if (= (channel_ready b) 0) {
-            (printf " . received nothing\n")
-        } else {
-            (printf " . received `b`, %s\n" (receive b))
-        }
-    } else {
+    if (channel_ready a) {
         (receive a)
         (printf " . received `a`\n")
+    } else {
+        if (channel_ready b) {
+            (printf " . received `b`, %s\n" (receive b))
+        } else {
+            (printf " . received nothing\n")
+        }
     }
 }
 
