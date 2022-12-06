@@ -204,8 +204,8 @@ compileCallArgs (arg : args) (reg : regs) = do
 argRegs :: [Reg]
 argRegs = [RegRdi, RegRsi, RegRdx, RegRcx, RegR8, RegR9]
 
-compileBinOp :: Expr -> Expr -> Reg -> Reg -> State Compiler ()
-compileBinOp exprLeft exprRight regLeft regRight = do
+compileBinOpArgs :: Expr -> Expr -> Reg -> Reg -> State Compiler ()
+compileBinOpArgs exprLeft exprRight regLeft regRight = do
   compileExpr exprLeft
   compileExpr exprRight
   setInstPop $ Just $ OpReg regRight
@@ -266,11 +266,11 @@ compileExpr (ExprStr str) = do
   label <- compileString str
   setInstPush $ OpLabel label
 compileExpr (ExprCall _ "+" [exprLeft, exprRight]) = do
-  compileBinOp exprLeft exprRight RegR10 RegR11
+  compileBinOpArgs exprLeft exprRight RegR10 RegR11
   setInst $ InstAdd (OpReg RegR10) (OpReg RegR11)
   setInstPush $ OpReg RegR10
 compileExpr (ExprCall _ "-" [exprLeft, exprRight]) = do
-  compileBinOp exprLeft exprRight RegR10 RegR11
+  compileBinOpArgs exprLeft exprRight RegR10 RegR11
   setInst $ InstSub (OpReg RegR10) (OpReg RegR11)
   setInstPush $ OpReg RegR10
 compileExpr (ExprCall _ "-" _) = undefined
@@ -318,7 +318,7 @@ compileExpr (ExprIfElse cond scopeTrue scopeFalse) = do
 
 compileCondition :: String -> Expr -> State Compiler ()
 compileCondition label (ExprCall _ "=" [exprLeft, exprRight]) = do
-  compileBinOp exprLeft exprRight RegR10 RegR11
+  compileBinOpArgs exprLeft exprRight RegR10 RegR11
   setInsts
     [ InstCmp (OpReg RegR10) (OpReg RegR11),
       InstJnz $ OpLabel label
