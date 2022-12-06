@@ -101,7 +101,8 @@ exprIfElse = do
   cond <- expr
   scopeTrue <- scope
   _ <- token $ string "else"
-  ExprIfElse cond scopeTrue <$> scope
+  scopeFalse <- scope <++ (Scope [] <$> exprIfElse)
+  return $ ExprIfElse cond scopeTrue scopeFalse
 
 expr :: ReadP Expr
 expr =

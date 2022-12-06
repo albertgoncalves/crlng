@@ -12,12 +12,10 @@ select a b {
     if (channel_ready a) {
         (receive a)
         (printf " . received `a`\n")
+    } else if (channel_ready b) {
+        (printf " . received `b`, %s\n" (receive b))
     } else {
-        if (channel_ready b) {
-            (printf " . received `b`, %s\n" (receive b))
-        } else {
-            (printf " . received nothing\n")
-        }
+        (printf " . received nothing\n")
     }
 }
 
