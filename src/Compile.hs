@@ -25,6 +25,12 @@ data Inst
   | InstXor Op Op
   | InstAdd Op Op
   | InstSub Op Op
+  | InstIMul Op Op
+  | InstIDiv Op
+  | InstCqo
+  | InstSets Op
+  | InstCmovz Op Op
+  | InstCmovns Op Op
   | InstLabel String
   | InstRet
 
@@ -44,6 +50,7 @@ data Reg
   | RegR8
   | RegR9
   | RegR10
+  | RegR10b
   | RegR11
   | RegRdi
   | RegRsi
@@ -71,6 +78,15 @@ instance Show Inst where
   show (InstXor opDst opSrc) = printf "\txor %s, %s" (show opDst) (show opSrc)
   show (InstAdd opDst opSrc) = printf "\tadd %s, %s" (show opDst) (show opSrc)
   show (InstSub opDst opSrc) = printf "\tsub %s, %s" (show opDst) (show opSrc)
+  show (InstIMul opDst opSrc) =
+    printf "\timul %s, %s" (show opDst) (show opSrc)
+  show (InstIDiv op) = printf "\tidiv %s" $ show op
+  show InstCqo = "\tcqo"
+  show (InstSets op) = printf "\tsets %s" $ show op
+  show (InstCmovz opDst opSrc) =
+    printf "\tcmovz %s, %s" (show opDst) (show opSrc)
+  show (InstCmovns opDst opSrc) =
+    printf "\tcmovns %s, %s" (show opDst) (show opSrc)
   show (InstLabel label) = printf "%s:" label
   show InstRet = "\tret"
 
@@ -89,6 +105,7 @@ instance Show Reg where
   show RegR8 = "r8"
   show RegR9 = "r9"
   show RegR10 = "r10"
+  show RegR10b = "r10b"
   show RegR11 = "r11"
   show RegRdi = "rdi"
   show RegRsi = "rsi"
@@ -273,7 +290,43 @@ compileExpr (ExprCall _ "-" [exprLeft, exprRight]) = do
   compileBinOpArgs exprLeft exprRight RegR10 RegR11
   setInst $ InstSub (OpReg RegR10) (OpReg RegR11)
   setInstPush $ OpReg RegR10
-compileExpr (ExprCall _ "-" _) = undefined
+compileExpr (ExprCall _ "*" [exprLeft, exprRight]) = do
+  compileBinOpArgs exprLeft exprRight RegR10 RegR11
+  setInst $ InstIMul (OpReg RegR10) (OpReg RegR11)
+  setInstPush $ OpReg RegR10
+compileExpr (ExprCall _ "/" [exprLeft, exprRight]) = do
+  compileExpr exprLeft
+  compileExpr exprRight
+  setInst $ InstXor (OpReg RegR10) (OpReg RegR10)
+  setInstPop $ Just $ OpReg RegR11
+  setInstPop $ Just rax
+  setInsts
+    [ InstCqo,
+      InstIDiv $ OpReg RegR11,
+      InstTest rax rax,
+      InstSets $ OpReg RegR10b,
+      InstTest (OpReg RegRdx) (OpReg RegRdx),
+      InstCmovz (OpReg RegR10) (OpReg RegRdx),
+      InstSub rax (OpReg RegR10)
+    ]
+  setInstPush rax
+compileExpr (ExprCall _ "%" [exprLeft, exprRight]) = do
+  compileExpr exprLeft
+  compileExpr exprRight
+  setInst $ InstXor (OpReg RegRcx) (OpReg RegRcx)
+  setInstPop $ Just $ OpReg RegR11
+  setInstPop $ Just rax
+  setInsts
+    [ InstMov (OpReg RegR10) (OpReg RegR11),
+      InstCqo,
+      InstIDiv $ OpReg RegR11,
+      InstTest rax rax,
+      InstCmovns (OpReg RegR10) (OpReg RegRcx),
+      InstTest (OpReg RegRdx) (OpReg RegRdx),
+      InstCmovz (OpReg RegR10) (OpReg RegRcx),
+      InstAdd (OpReg RegRdx) (OpReg RegR10)
+    ]
+  setInstPush $ OpReg RegRdx
 compileExpr (ExprCall _ "self" _) =
   setInstPush $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
 compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do

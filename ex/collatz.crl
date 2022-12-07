@@ -1,0 +1,18 @@
+collatz n {
+    if (= n 1) {
+        (printf "1\n")
+        n
+    } else {
+        (printf "%ld," n)
+        if (= (% n 2) 0) {
+            (collatz (/ n 2))
+        } else {
+            (collatz (+ (* n 3) 1))
+        }
+    }
+}
+
+main_thread {
+    (collatz 3)
+    (kill)
+}

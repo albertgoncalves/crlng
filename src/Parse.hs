@@ -85,7 +85,7 @@ ident = token $ do
   return $ c : cs
 
 operator :: ReadP String
-operator = token $ (: []) <$> choice (map char "=+-")
+operator = token $ (: []) <$> choice (map char "=+-*/%")
 
 exprCall :: ReadP Expr
 exprCall = do

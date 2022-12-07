@@ -1,0 +1,25 @@
+f a b {
+    (printf
+        "%ld,%ld\n"
+        (/ a b)
+        (% a b))
+    (printf
+        "%ld,%ld\n"
+        (/ (- 0 a) b)
+        (% (- 0 a) b))
+    (printf
+        "%ld,%ld\n"
+        (/ a (- 0 b))
+        (% a (- 0 b)))
+    (printf
+        "%ld,%ld\n"
+        (/ (- 0 a) (- 0 b))
+        (% (- 0 a) (- 0 b)))
+}
+
+main_thread {
+    (f 34 16)
+    (f 34 17)
+    (f 34 18)
+    (kill)
+}

@@ -18,8 +18,27 @@ class Tests(TestCase):
             return
         self.assertEqual(result.stdout.decode(), f"{expected}\n")
 
+    def test_collatz(self):
+        self.into_test("collatz", "3,10,5,16,8,4,2,1")
+
     def test_dining_philosophers(self):
         self.into_test("dining_philosophers", None)
+
+    def test_divmod(self):
+        self.into_test("divmod", "\n".join([
+            "2,2",
+            "-3,14",
+            "-3,-14",
+            "2,-2",
+            "2,0",
+            "-2,0",
+            "-2,0",
+            "2,0",
+            "1,16",
+            "-2,2",
+            "-2,-2",
+            "1,-16",
+        ]))
 
     def test_fib(self):
         self.into_test("fib", 12586269025)
