@@ -13,6 +13,6 @@ collatz n {
 }
 
 main_thread {
-    (collatz 3)
+    (collatz 9)
     (kill)
 }

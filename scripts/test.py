@@ -19,7 +19,10 @@ class Tests(TestCase):
         self.assertEqual(result.stdout.decode(), f"{expected}\n")
 
     def test_collatz(self):
-        self.into_test("collatz", "3,10,5,16,8,4,2,1")
+        self.into_test(
+            "collatz",
+            "9,28,14,7,22,11,34,17,52,26,13,40,20,10,5,16,8,4,2,1",
+        )
 
     def test_dining_philosophers(self):
         self.into_test("dining_philosophers", None)
