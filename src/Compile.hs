@@ -336,6 +336,7 @@ compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
     ]
   setInstPush rax
   mapM_ compileSpawnArg args
+  compileYield . printf "spawn_%d" =<< nextK
 compileExpr (ExprCall _ "printf" args) = do
   compileCallArgs args argRegs
   setInsts [InstXor rax rax, InstCall $ OpLabel "printf"]
