@@ -18,6 +18,9 @@ class Tests(TestCase):
             return
         self.assertEqual(result.stdout.decode(), f"{expected}\n")
 
+    def test_ackermann_peter(self):
+        self.into_test("ackermann_peter", "5, 13, 29, 61, 125")
+
     def test_collatz(self):
         self.into_test(
             "collatz",

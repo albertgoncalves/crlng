@@ -1,0 +1,18 @@
+ackermann_peter m n {
+    if (= m 0) {
+        (+ n 1)
+    } else if (= n 0) {
+        (ackermann_peter (- m 1) 1)
+    } else {
+        (ackermann_peter (- m 1) (ackermann_peter m (- n 1)))
+    }
+}
+
+main_thread {
+    (printf "%ld, " (ackermann_peter 3 0))
+    (printf "%ld, " (ackermann_peter 3 1))
+    (printf "%ld, " (ackermann_peter 3 2))
+    (printf "%ld, " (ackermann_peter 3 3))
+    (printf "%ld\n" (ackermann_peter 3 4))
+    (kill)
+}
