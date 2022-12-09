@@ -38,18 +38,21 @@ flags_c=(
     -Wno-pointer-arith
 )
 
-fasm "$WD/src/runtime.asm" "$WD/build/runtime_asm.o" &
-(
-    clang-format -i -verbose "$WD/src/"runtime.c
-    clang "${flags_c[@]}" -o "$WD/build/runtime_c.o" "$WD/src/runtime.c"
-) &
-(
-    for x in "$WD/src"/*.hs; do
+clang-format -i -verbose "$WD/src/"runtime.c &
+for x in "$WD/src"/*.hs; do
+    (
         hlint "$x"
         ormolu -m inplace "$x"
-    done
-    ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs"
-) &
+    ) &
+done
+
+for _ in $(jobs -p); do
+    wait -n
+done
+
+ghc "${flags_hs[@]}" -o "$WD/bin/com" "$WD/src/Main.hs" &
+clang "${flags_c[@]}" -o "$WD/build/runtime_c.o" "$WD/src/runtime.c" &
+fasm "$WD/src/runtime.asm" "$WD/build/runtime_asm.o" &
 
 for _ in $(jobs -p); do
     wait -n
