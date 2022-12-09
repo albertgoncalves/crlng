@@ -1,0 +1,28 @@
+f0 x {
+    (f1 x)
+    x
+}
+
+f1 x {
+    (f2 x)
+    x
+}
+
+f2 x {
+    (panic)
+    x
+}
+
+work n {
+    if (= n 0) {
+        0
+    } else {
+        (work (- n 1))
+    }
+}
+
+main_thread {
+    (spawn f0 0)
+    (work 10)
+    (kill)
+}
