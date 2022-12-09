@@ -23,6 +23,7 @@ syn keyword Statement
 syn keyword Function
     \ spawn
     \ kill
+    \ panic
     \ send
     \ receive
     \ self

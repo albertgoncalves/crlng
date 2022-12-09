@@ -355,6 +355,7 @@ compileExpr (ExprCall False label args) = do
   setInst $ InstCall $ OpLabel label
   setInstPush rax
 compileExpr (ExprCall True label args) = do
+  setInst $ InstCall $ OpLabel "call_pop"
   compileCallArgs args argRegs
   setInst . InstAdd (OpReg RegRsp) . OpImm . negate =<< getRsp
   setInst $ InstJmp $ OpLabel label
@@ -425,7 +426,10 @@ compileFunc (Func label args scope) = do
   compileFuncArgs args argRegs
   setInst $ InstCall $ OpLabel "stack_overflow"
   compileYield label
+  setInst . InstMov (OpReg RegRdi) . OpLabel =<< compileString label
+  setInst $ InstCall $ OpLabel "call_push"
   compileScope scope
+  setInst $ InstCall $ OpLabel "call_pop"
   setInstPop $ Just rax
   rspPost <- getRsp
   resetStack rspPre rspPost
@@ -478,6 +482,7 @@ compile funcs =
           "extrn SCHED_RSP",
           "extrn SCHED_RBP",
           "extrn scheduler",
+          "extrn panic",
           "extrn receive",
           "extrn send",
           "extrn stack_overflow",
@@ -485,7 +490,9 @@ compile funcs =
           "extrn thread_kill",
           "extrn thread_push_stack",
           "extrn channel_new",
-          "extrn channel_ready"
+          "extrn channel_ready",
+          "extrn call_push",
+          "extrn call_pop"
         ]
     strings =
       "section '.rodata'\n"

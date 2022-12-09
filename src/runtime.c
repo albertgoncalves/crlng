@@ -54,10 +54,18 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
 #define CAP_CHANNELS (1 << 4)
 #define CAP_DATAS    (1 << 4)
 #define CAP_WAITS    (1 << 3)
+#define CAP_CALLS    (1 << 3)
 
 typedef struct {
     void* buffer[CAP_BUFFER];
 } Stack;
+
+typedef struct Call Call;
+
+struct Call {
+    const char* label;
+    Call*       prev;
+};
 
 typedef enum {
     DEAD = 0,
@@ -74,6 +82,7 @@ struct Thread {
     Stack*       stack;
     Thread*      prev;
     Thread*      next;
+    Call*        call;
     ThreadStatus status;
 };
 
@@ -112,16 +121,19 @@ static Stack       STACKS[CAP_STACKS];
 static Thread      THREADS[CAP_THREADS];
 static ChannelData DATAS[CAP_DATAS];
 static ChannelWait WAITS[CAP_WAITS];
+static Call        CALLS[CAP_CALLS];
 
 static Stack*       STACK_POOL[CAP_STACKS];
 static Thread*      THREAD_POOL[CAP_THREADS];
 static ChannelData* DATA_POOL[CAP_DATAS];
 static ChannelWait* WAIT_POOL[CAP_WAITS];
+static Call*        CALL_POOL[CAP_CALLS];
 
 static u32 LEN_STACKS = CAP_STACKS;
 static u32 LEN_THREADS = CAP_THREADS;
 static u32 LEN_DATAS = CAP_DATAS;
 static u32 LEN_WAITS = CAP_WAITS;
+static u32 LEN_CALLS = CAP_CALLS;
 
 static ThreadQueue QUEUE = {0};
 
@@ -140,6 +152,11 @@ Bool     channel_ready(Channel*);
 void     channel_push_data(Channel*, void*);
 void     channel_push_wait(Channel*, Thread*);
 void*    channel_pop_data(Channel*);
+
+void call_push(const char*);
+void call_pop(void);
+
+__attribute__((noreturn)) void panic(void);
 
 static Channel* alloc_channel(void) {
     EXIT_IF(CAP_CHANNELS <= LEN_CHANNELS);
@@ -161,6 +178,9 @@ void memory_init(void) {
     }
     for (u32 i = 0; i < CAP_WAITS; ++i) {
         WAIT_POOL[i] = &WAITS[(CAP_WAITS - 1) - i];
+    }
+    for (u32 i = 0; i < CAP_CALLS; ++i) {
+        CALL_POOL[i] = &CALLS[(CAP_CALLS - 1) - i];
     }
 }
 
@@ -184,6 +204,11 @@ static ChannelWait* alloc_wait(void) {
     return WAIT_POOL[--LEN_WAITS];
 }
 
+static Call* alloc_call(void) {
+    EXIT_IF(LEN_CALLS == 0);
+    return CALL_POOL[--LEN_CALLS];
+}
+
 static void free_stack(Stack* stack) {
     STACK_POOL[LEN_STACKS++] = stack;
 }
@@ -199,6 +224,10 @@ static void free_data(ChannelData* data) {
 
 static void free_wait(ChannelWait* wait) {
     WAIT_POOL[LEN_WAITS++] = wait;
+}
+
+static void free_call(Call* call) {
+    CALL_POOL[LEN_CALLS++] = call;
 }
 
 static void queue_push(Thread* thread) {
@@ -262,6 +291,7 @@ Thread* thread_new(void (*resume)(void)) {
     thread->stack = stack;
     thread->rbp = &stack->buffer[CAP_BUFFER];
     thread->rsp = &stack->buffer[CAP_BUFFER];
+    thread->call = NULL;
     thread->status = READY;
     queue_push(thread);
     return thread;
@@ -426,6 +456,44 @@ void* channel_pop_data(Channel* channel) {
     }
     free_data(channel_data);
     return data;
+}
+
+void call_push(const char* label) {
+    EXIT_IF(!THREAD);
+#if VERBOSE
+    fprintf(stderr, "  [ Pushing `%s` onto call stack ]\n", label);
+#endif
+    Call* call = alloc_call();
+    call->label = label;
+    call->prev = THREAD->call;
+    THREAD->call = call;
+}
+
+void call_pop(void) {
+    EXIT_IF(!THREAD);
+    EXIT_IF(!THREAD->call);
+    Call* call = THREAD->call;
+#if VERBOSE
+    fprintf(stderr, "  [ Popping `%s` from call stack ]\n", call->label);
+#endif
+    THREAD->call = call->prev;
+    free_call(call);
+}
+
+__attribute__((noreturn)) void panic(void) {
+    EXIT_IF(!THREAD);
+    EXIT_IF(!THREAD->call);
+    fprintf(stderr, "Panic at\n");
+    for (;;) {
+        fprintf(stderr, "  `%s`", THREAD->call->label);
+        THREAD->call = THREAD->call->prev;
+        if (!THREAD->call) {
+            fputc('\n', stderr);
+            break;
+        }
+        fprintf(stderr, " called from\n");
+    }
+    EXIT(ERROR);
 }
 
 __attribute__((noreturn)) void scheduler(void) {
