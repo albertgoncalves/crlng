@@ -49,6 +49,9 @@ class Tests(TestCase):
     def test_fib(self):
         self.into_test("fib", 12586269025)
 
+    def test_hello(self):
+        self.into_test("hello", "Hello, world!")
+
     def test_ping_pong(self):
         self.into_test("ping_pong", "\n".join([
             " - ping -",
