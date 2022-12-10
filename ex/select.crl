@@ -1,11 +1,9 @@
 worker_a channel {
     (send channel 0)
-    (kill)
 }
 
 worker_b channel {
     (send channel "???")
-    (kill)
 }
 
 select a b {

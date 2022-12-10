@@ -54,7 +54,7 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
 #define CAP_CHANNELS (1 << 4)
 #define CAP_DATAS    (1 << 4)
 #define CAP_WAITS    (1 << 3)
-#define CAP_CALLS    (1 << 3)
+#define CAP_CALLS    (1 << 4)
 
 typedef struct {
     void* buffer[CAP_BUFFER];

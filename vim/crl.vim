@@ -22,7 +22,6 @@ syn keyword Statement
     \ let
 syn keyword Function
     \ spawn
-    \ kill
     \ panic
     \ send
     \ receive

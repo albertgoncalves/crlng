@@ -124,12 +124,13 @@ data Compiler = Compiler
   { compilerInsts :: [Inst],
     compilerStrings :: M.Map String String,
     compilerLocals :: [M.Map String Int],
+    compilerSpawns :: M.Map String Int,
     compilerRsp :: Int,
     compilerK :: Int
   }
 
 newCompiler :: Compiler
-newCompiler = Compiler [] M.empty [] 0 0
+newCompiler = Compiler [] M.empty [] M.empty 0 0
 
 nextK :: State Compiler Int
 nextK = state $ \c -> let k = compilerK c in (k, c {compilerK = succ k})
@@ -151,6 +152,17 @@ setInst inst = modify $ \c -> c {compilerInsts = inst : compilerInsts c}
 
 setInsts :: [Inst] -> State Compiler ()
 setInsts = mapM_ setInst
+
+getSpawns :: State Compiler (M.Map String Int)
+getSpawns = state $ \c -> (compilerSpawns c, c)
+
+setSpawn :: String -> Int -> State Compiler ()
+setSpawn func lenArgs = do
+  spawns <- getSpawns
+  if M.member func spawns
+    then return ()
+    else modify $
+      \c -> c {compilerSpawns = M.insert func lenArgs $ compilerSpawns c}
 
 quadWord :: Int
 quadWord = 8
@@ -235,6 +247,9 @@ compileSpawnArg arg = do
   compileExpr arg
   setInstPop $ Just $ OpReg RegRsi
   setInst $ InstCall $ OpLabel "thread_push_stack"
+
+intoSpawnLabel :: String -> String
+intoSpawnLabel = printf "_%s_thread_"
 
 intoYieldLabel :: String -> String
 intoYieldLabel = printf "_%s_yield_"
@@ -330,8 +345,9 @@ compileExpr (ExprCall _ "%" [exprLeft, exprRight]) = do
 compileExpr (ExprCall _ "self" _) =
   setInstPush $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
 compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
+  setSpawn func (length args)
   setInsts
-    [ InstMov (OpReg RegRdi) (OpLabel $ intoYieldLabel func),
+    [ InstMov (OpReg RegRdi) (OpLabel $ intoYieldLabel $ intoSpawnLabel func),
       InstCall (OpLabel "thread_new")
     ]
   setInstPush rax
@@ -436,6 +452,15 @@ compileFunc (Func label args scope) = do
   setInst InstRet
   popLocals
 
+spawnToFunc :: String -> Int -> Func
+spawnToFunc func lenArgs =
+  Func (intoSpawnLabel func) args $
+    Scope
+      [StmtEffect $ ExprCall False func $ map ExprVar args]
+      (ExprCall False "kill" [])
+  where
+    args = map (: []) $ take lenArgs ['a' ..]
+
 optimizePushPop :: [Inst] -> [Inst]
 optimizePushPop [] = []
 optimizePushPop (InstPush opPush : InstPop opPop : insts)
@@ -463,6 +488,7 @@ optimize = optimizePushPop . optimizeUnreachable
 compileFuncs :: [Func] -> State Compiler ()
 compileFuncs funcs = do
   mapM_ compileFunc funcs
+  mapM_ (compileFunc . uncurry spawnToFunc) . M.toList =<< getSpawns
   modify $ \c -> c {compilerInsts = optimize $ reverse $ compilerInsts c}
 
 compile :: [Func] -> Builder

@@ -15,7 +15,6 @@ philosopher left_fork right_fork done {
 
     (printf " [ %p ] thinking\n" (self))
     (send done 0)
-    (kill)
 }
 
 main_thread {

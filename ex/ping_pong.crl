@@ -4,7 +4,6 @@ ping_pong in out done message {
     }
     if (= n 0) {
         (send done "Done!")
-        (kill)
     } else {
         (printf "%s\n" message)
         (send out (- n 1))
