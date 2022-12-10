@@ -45,6 +45,4 @@ main_thread {
     (select a b)
 
     (printf "Done!\n")
-
-    (kill)
 }

@@ -51,5 +51,4 @@ main_thread {
     (receive done4)
 
     (printf "Done!\n")
-    (kill)
 }

@@ -14,5 +14,4 @@ main_thread {
     (printf "%ld, " (ackermann_peter 3 2))
     (printf "%ld, " (ackermann_peter 3 3))
     (printf "%ld\n" (ackermann_peter 3 4))
-    (kill)
 }

@@ -476,7 +476,7 @@ compile funcs =
       foldMap
         (<> charUtf8 '\n')
         [ "format ELF64",
-          "public _main_thread_yield_",
+          "public main_thread",
           "extrn printf",
           "extrn THREAD",
           "extrn SCHED_RSP",

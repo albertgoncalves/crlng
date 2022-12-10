@@ -1,7 +1,6 @@
 # ...
 main_thread {
     (printf "%lu\n" (fib 50 0 1))
-    (kill)
 }
 
 /* ... */

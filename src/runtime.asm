@@ -18,13 +18,14 @@ extrn scheduler
 extrn memory_init
 
 extrn thread_new
+extrn thread_kill
 
 extrn channel_ready
 extrn channel_push_data
 extrn channel_push_wait
 extrn channel_pop_data
 
-extrn _main_thread_yield_
+extrn main_thread
 
 section '.bss' writeable
     SCHED_RSP rq 1
@@ -99,6 +100,20 @@ section '.text' executable
         ret
 
 
+    main_thread_kill:
+        mov     rax, qword [THREAD]
+        mov     rsp, qword [rax + 8]
+        mov     rbp, qword [rax + 16]
+        call    main_thread
+
+        mov     rdi, qword [THREAD]
+        call    thread_kill
+
+        mov     rsp, qword [SCHED_RSP]
+        mov     rbp, qword [SCHED_RBP]
+        jmp     scheduler
+
+
     main:
         push    rbp
         mov     rbp, rsp
@@ -108,7 +123,7 @@ section '.text' executable
 
         call    memory_init
 
-        mov     rdi, _main_thread_yield_
+        mov     rdi, main_thread_kill
         call    thread_new
 
         mov     qword [SCHED_RSP], rsp

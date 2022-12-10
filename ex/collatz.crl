@@ -14,5 +14,4 @@ collatz n {
 
 main_thread {
     (collatz 9)
-    (kill)
 }

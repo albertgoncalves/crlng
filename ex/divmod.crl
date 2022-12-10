@@ -21,5 +21,4 @@ main_thread {
     (f 34 16)
     (f 34 17)
     (f 34 18)
-    (kill)
 }
