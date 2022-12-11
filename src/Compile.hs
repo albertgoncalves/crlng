@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Compile where
@@ -7,9 +8,10 @@ import Control.Exception (assert)
 import Control.Monad.State (State, execState, modify, state)
 import Data.ByteString.Builder (Builder, charUtf8, stringUtf8)
 import Data.Char (ord)
-import Data.List (intercalate)
+import Data.List (groupBy, intercalate)
 import qualified Data.Map as M
 import Data.Maybe (mapMaybe)
+import qualified Data.Set as S
 import Text.Printf (printf)
 
 data Inst
@@ -125,12 +127,17 @@ data Compiler = Compiler
     compilerStrings :: M.Map String String,
     compilerLocals :: [M.Map String Int],
     compilerSpawns :: M.Map String Int,
+    compilerLabels :: S.Set String,
     compilerRsp :: Int,
     compilerK :: Int
   }
 
+isLabel :: Inst -> Bool
+isLabel (InstLabel _) = True
+isLabel _ = False
+
 newCompiler :: Compiler
-newCompiler = Compiler [] M.empty [] M.empty 0 0
+newCompiler = Compiler [] M.empty [] M.empty (S.singleton "main_thread") 0 0
 
 nextK :: State Compiler Int
 nextK = state $ \c -> let k = compilerK c in (k, c {compilerK = succ k})
@@ -163,6 +170,16 @@ setSpawn func lenArgs = do
     then return ()
     else modify $
       \c -> c {compilerSpawns = M.insert func lenArgs $ compilerSpawns c}
+
+getLabels :: State Compiler (S.Set String)
+getLabels = state $ \c -> (compilerLabels c, c)
+
+setLabel :: String -> State Compiler ()
+setLabel label = do
+  labels <- getLabels
+  if S.member label labels
+    then return ()
+    else modify $ \c -> c {compilerLabels = S.insert label $ compilerLabels c}
 
 quadWord :: Int
 quadWord = 8
@@ -222,6 +239,11 @@ compileString str = do
 intoAsmString :: String -> String
 intoAsmString = intercalate "," . map show . (++ [0]) . map ord
 
+intoOpLabel :: String -> State Compiler Op
+intoOpLabel label = do
+  setLabel label
+  return $ OpLabel label
+
 compileCallArgs :: [Expr] -> [Reg] -> State Compiler ()
 compileCallArgs [] _ = return ()
 compileCallArgs _ [] = undefined
@@ -246,7 +268,7 @@ compileSpawnArg arg = do
     InstMov (OpReg RegRdi) $ OpAddrOffset $ AddrOffset (AddrReg RegRsp) 0
   compileExpr arg
   setInstPop $ Just $ OpReg RegRsi
-  setInst $ InstCall $ OpLabel "thread_push_stack"
+  setInst . InstCall =<< intoOpLabel "thread_push_stack"
 
 intoSpawnLabel :: String -> String
 intoSpawnLabel = printf "_%s_thread_"
@@ -260,9 +282,9 @@ setInstsJumpScheduler = do
     [ InstMov (OpReg RegRsp) $
         OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RSP") 0,
       InstMov (OpReg RegRbp) $
-        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RBP") 0,
-      InstJmp $ OpLabel "scheduler"
+        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RBP") 0
     ]
+  setInst . InstJmp =<< intoOpLabel "scheduler"
 
 compileYield :: String -> State Compiler ()
 compileYield label = do
@@ -272,10 +294,10 @@ compileYield label = do
         (OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord)
         (OpReg RegRsp),
       InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) $ quadWord * 2) $
-        OpReg RegRbp,
-      InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) 0) $
-        OpLabel yieldLabel
+        OpReg RegRbp
     ]
+  setInst . InstMov (OpAddrOffset $ AddrOffset (AddrReg RegRax) 0)
+    =<< intoOpLabel yieldLabel
   setInstsJumpScheduler
   setInsts
     [ InstLabel yieldLabel,
@@ -296,7 +318,7 @@ compileExpr (ExprVar var) = do
   setInstPush $ OpAddrOffset $ AddrOffset (AddrReg RegRsp) $ rspPrev - rsp
 compileExpr (ExprStr str) = do
   label <- compileString str
-  setInstPush $ OpLabel label
+  setInstPush =<< intoOpLabel label
 compileExpr (ExprCall _ "+" [exprLeft, exprRight]) = do
   compileBinOpArgs exprLeft exprRight RegR10 RegR11
   setInst $ InstAdd (OpReg RegR10) (OpReg RegR11)
@@ -346,35 +368,32 @@ compileExpr (ExprCall _ "self" _) =
   setInstPush $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
 compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
   setSpawn func (length args)
-  setInsts
-    [ InstMov (OpReg RegRdi) (OpLabel $ intoYieldLabel $ intoSpawnLabel func),
-      InstCall (OpLabel "thread_new")
-    ]
+  setInst . InstMov (OpReg RegRdi)
+    =<< intoOpLabel (intoYieldLabel $ intoSpawnLabel func)
+  setInst . InstCall =<< intoOpLabel "thread_new"
   setInstPush rax
   mapM_ compileSpawnArg args
   compileYield . printf "spawn_%d" =<< nextK
 compileExpr (ExprCall _ "printf" args) = do
   compileCallArgs args argRegs
-  setInsts [InstXor rax rax, InstCall $ OpLabel "printf"]
+  setInst $ InstXor rax rax
+  setInst . InstCall =<< intoOpLabel "printf"
   setInstPush rax
 compileExpr (ExprCall _ "kill" []) = do
-  setInsts
-    [ InstMov
-        (OpReg RegRdi)
-        $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
-      InstCall $ OpLabel "thread_kill"
-    ]
+  setInst $
+    InstMov (OpReg RegRdi) $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
+  setInst . InstCall =<< intoOpLabel "thread_kill"
   setInstsJumpScheduler
   setInstPush $ OpImm 0
 compileExpr (ExprCall False label args) = do
   compileCallArgs args argRegs
-  setInst $ InstCall $ OpLabel label
+  setInst . InstCall =<< intoOpLabel label
   setInstPush rax
 compileExpr (ExprCall True label args) = do
-  setInst $ InstCall $ OpLabel "call_pop"
+  setInst . InstCall =<< intoOpLabel "call_pop"
   compileCallArgs args argRegs
   setInst . InstAdd (OpReg RegRsp) . OpImm . negate =<< getRsp
-  setInst $ InstJmp $ OpLabel label
+  setInst . InstJmp =<< intoOpLabel label
   setInstPush $ OpImm 0
 compileExpr (ExprIfElse cond scopeTrue scopeFalse) = do
   labelElse <- printf "_else_%d_" <$> nextK
@@ -383,24 +402,21 @@ compileExpr (ExprIfElse cond scopeTrue scopeFalse) = do
   rspPre <- getRsp
   compileScope scopeTrue
   setRsp rspPre
-  setInsts [InstJmp $ OpLabel labelEnd, InstLabel labelElse]
+  setInst . InstJmp =<< intoOpLabel labelEnd
+  setInst $ InstLabel labelElse
   compileScope scopeFalse
   setInst $ InstLabel labelEnd
 
 compileCondition :: String -> Expr -> State Compiler ()
 compileCondition label (ExprCall _ "=" [exprLeft, exprRight]) = do
   compileBinOpArgs exprLeft exprRight RegR10 RegR11
-  setInsts
-    [ InstCmp (OpReg RegR10) (OpReg RegR11),
-      InstJnz $ OpLabel label
-    ]
+  setInst $ InstCmp (OpReg RegR10) (OpReg RegR11)
+  setInst . InstJnz =<< intoOpLabel label
 compileCondition label expr = do
   compileExpr expr
   setInstPop $ Just rax
-  setInsts
-    [ InstTest rax rax,
-      InstJz $ OpLabel label
-    ]
+  setInst $ InstTest rax rax
+  setInst . InstJz =<< intoOpLabel label
 
 compileScope :: Scope -> State Compiler ()
 compileScope (Scope [] expr) = compileExpr expr
@@ -440,12 +456,12 @@ compileFunc (Func label args scope) = do
   assert (rspPre == 0) $ return ()
   setInst $ InstLabel label
   compileFuncArgs args argRegs
-  setInst $ InstCall $ OpLabel "stack_overflow"
+  setInst . InstCall =<< intoOpLabel "stack_overflow"
   compileYield label
-  setInst . InstMov (OpReg RegRdi) . OpLabel =<< compileString label
-  setInst $ InstCall $ OpLabel "call_push"
+  setInst . InstMov (OpReg RegRdi) =<< intoOpLabel =<< compileString label
+  setInst . InstCall =<< intoOpLabel "call_push"
   compileScope scope
-  setInst $ InstCall $ OpLabel "call_pop"
+  setInst . InstCall =<< intoOpLabel "call_pop"
   setInstPop $ Just rax
   rspPost <- getRsp
   resetStack rspPre rspPost
@@ -482,14 +498,27 @@ optimizeUnreachable (InstRet : _ : insts) =
   optimizeUnreachable $ InstRet : insts
 optimizeUnreachable (inst : insts) = inst : optimizeUnreachable insts
 
-optimize :: [Inst] -> [Inst]
-optimize = optimizePushPop . optimizeUnreachable
+optimizeDeadCode :: S.Set String -> [Inst] -> [Inst]
+optimizeDeadCode labels insts =
+  concat $
+    filter
+      ( \case
+          (InstLabel label : _) -> S.member label labels
+          _ -> undefined
+      )
+      $ groupBy (const $ not . isLabel) insts
+
+optimize :: S.Set String -> [Inst] -> [Inst]
+optimize labels =
+  optimizeDeadCode labels . optimizePushPop . optimizeUnreachable
 
 compileFuncs :: [Func] -> State Compiler ()
 compileFuncs funcs = do
   mapM_ compileFunc funcs
   mapM_ (compileFunc . uncurry spawnToFunc) . M.toList =<< getSpawns
-  modify $ \c -> c {compilerInsts = optimize $ reverse $ compilerInsts c}
+  labels <- getLabels
+  modify $
+    \c -> c {compilerInsts = optimize labels $ reverse $ compilerInsts c}
 
 compile :: [Func] -> Builder
 compile funcs =
