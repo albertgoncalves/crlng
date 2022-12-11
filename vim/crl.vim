@@ -23,11 +23,11 @@ syn keyword Statement
 syn keyword Function
     \ spawn
     \ panic
+    \ channel
     \ send
+    \ ready
     \ receive
     \ self
-    \ channel_new
-    \ channel_ready
     \ printf
     \ main
 

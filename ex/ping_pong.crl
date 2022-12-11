@@ -13,13 +13,13 @@ ping_pong in out done message {
 
 main {
     let ping {
-        (channel_new)
+        (channel)
     }
     let pong {
-        (channel_new)
+        (channel)
     }
     let done {
-        (channel_new)
+        (channel)
     }
     (spawn ping_pong ping pong done " - ping -")
     (spawn ping_pong pong ping done " - pong -")

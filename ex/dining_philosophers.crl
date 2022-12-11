@@ -18,11 +18,11 @@ philosopher left_fork right_fork done {
 }
 
 main {
-    let fork0 { (channel_new) }
-    let fork1 { (channel_new) }
-    let fork2 { (channel_new) }
-    let fork3 { (channel_new) }
-    let fork4 { (channel_new) }
+    let fork0 { (channel) }
+    let fork1 { (channel) }
+    let fork2 { (channel) }
+    let fork3 { (channel) }
+    let fork4 { (channel) }
 
     (send fork0 0)
     (send fork1 0)
@@ -30,11 +30,11 @@ main {
     (send fork3 0)
     (send fork4 0)
 
-    let done0 { (channel_new) }
-    let done1 { (channel_new) }
-    let done2 { (channel_new) }
-    let done3 { (channel_new) }
-    let done4 { (channel_new) }
+    let done0 { (channel) }
+    let done1 { (channel) }
+    let done2 { (channel) }
+    let done3 { (channel) }
+    let done4 { (channel) }
 
     (spawn philosopher fork0 fork1 done0)
     (spawn philosopher fork1 fork2 done1)

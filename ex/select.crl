@@ -7,10 +7,10 @@ worker_b channel {
 }
 
 select a b {
-    if (channel_ready a) {
+    if (ready a) {
         (receive a)
         (printf " . received `a`\n")
-    } else if (channel_ready b) {
+    } else if (ready b) {
         (printf " . received `b`, %s\n" (receive b))
     } else {
         (printf " . received nothing\n")
@@ -27,10 +27,10 @@ work n {
 
 main {
     let a {
-        (channel_new)
+        (channel)
     }
     let b {
-        (channel_new)
+        (channel)
     }
 
     (spawn worker_a a)
