@@ -1,5 +1,5 @@
 # ...
-main_thread {
+main {
     (printf "%lu\n" (fib 50 0 1))
 }
 

@@ -21,7 +21,7 @@ work n {
     }
 }
 
-main_thread {
+main {
     (spawn f0 0)
     (work 10)
 }

@@ -17,7 +17,7 @@ philosopher left_fork right_fork done {
     (send done 0)
 }
 
-main_thread {
+main {
     let fork0 { (channel_new) }
     let fork1 { (channel_new) }
     let fork2 { (channel_new) }

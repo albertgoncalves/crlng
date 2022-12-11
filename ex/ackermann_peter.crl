@@ -8,7 +8,7 @@ ackermann_peter m n {
     }
 }
 
-main_thread {
+main {
     (printf "%ld, " (ackermann_peter 3 0))
     (printf "%ld, " (ackermann_peter 3 1))
     (printf "%ld, " (ackermann_peter 3 2))

@@ -11,7 +11,7 @@ ping_pong in out done message {
     }
 }
 
-main_thread {
+main {
     let ping {
         (channel_new)
     }

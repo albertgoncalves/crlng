@@ -12,6 +12,6 @@ collatz n {
     }
 }
 
-main_thread {
+main {
     (collatz 9)
 }

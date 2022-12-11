@@ -29,7 +29,7 @@ syn keyword Function
     \ channel_new
     \ channel_ready
     \ printf
-    \ main_thread
+    \ main
 
 syn keyword Todo FIXME NOTE TODO contained
 
