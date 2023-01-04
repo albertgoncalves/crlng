@@ -3,8 +3,8 @@
 set -eu
 
 for x in bin build; do
-    if [ ! -d "$x" ]; then
-        mkdir "$x"
+    if [ ! -d "$WD/$x" ]; then
+        mkdir "$WD/$x"
     fi
 done
 
