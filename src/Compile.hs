@@ -210,8 +210,8 @@ resetStack :: Int -> Int -> State Compiler ()
 resetStack rspPre rspPost
   | rspPre == rspPost = return ()
   | otherwise = do
-    setInst $ InstAdd (OpReg RegRsp) $ OpImm $ rspPre - rspPost
-    setRsp rspPre
+      setInst $ InstAdd (OpReg RegRsp) $ OpImm $ rspPre - rspPost
+      setRsp rspPre
 
 getLocal :: String -> State Compiler Int
 getLocal var =
@@ -265,7 +265,9 @@ compileBinOpArgs exprLeft exprRight regLeft regRight = do
 compileSpawnArg :: Expr -> State Compiler ()
 compileSpawnArg arg = do
   setInst $
-    InstMov (OpReg RegRdi) $ OpAddrOffset $ AddrOffset (AddrReg RegRsp) 0
+    InstMov (OpReg RegRdi) $
+      OpAddrOffset $
+        AddrOffset (AddrReg RegRsp) 0
   compileExpr arg
   setInstPop $ Just $ OpReg RegRsi
   setInst . InstCall =<< intoOpLabel "thread_push_stack"
@@ -280,9 +282,11 @@ setInstsJumpScheduler :: State Compiler ()
 setInstsJumpScheduler = do
   setInsts
     [ InstMov (OpReg RegRsp) $
-        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RSP") 0,
+        OpAddrOffset $
+          AddrOffset (AddrLabel "SCHED_RSP") 0,
       InstMov (OpReg RegRbp) $
-        OpAddrOffset $ AddrOffset (AddrLabel "SCHED_RBP") 0
+        OpAddrOffset $
+          AddrOffset (AddrLabel "SCHED_RBP") 0
     ]
   setInst . InstJmp =<< intoOpLabel "scheduler"
 
@@ -303,9 +307,12 @@ compileYield label = do
     [ InstLabel yieldLabel,
       InstMov rax $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
       InstMov (OpReg RegRsp) $
-        OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord,
+        OpAddrOffset $
+          AddrOffset (AddrReg RegRax) quadWord,
       InstMov (OpReg RegRbp) $
-        OpAddrOffset $ AddrOffset (AddrReg RegRax) $ quadWord * 2
+        OpAddrOffset $
+          AddrOffset (AddrReg RegRax) $
+            quadWord * 2
     ]
   where
     yieldLabel = intoYieldLabel label
@@ -381,7 +388,9 @@ compileExpr (ExprCall _ "printf" args) = do
   setInstPush rax
 compileExpr (ExprCall _ "kill" []) = do
   setInst $
-    InstMov (OpReg RegRdi) $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0
+    InstMov (OpReg RegRdi) $
+      OpAddrOffset $
+        AddrOffset (AddrLabel "THREAD") 0
   setInst . InstCall =<< intoOpLabel "thread_kill"
   setInstsJumpScheduler
   setInstPush $ OpImm 0
@@ -500,13 +509,13 @@ optimizeUnreachable (inst : insts) = inst : optimizeUnreachable insts
 
 optimizeDeadCode :: S.Set String -> [Inst] -> [Inst]
 optimizeDeadCode labels insts =
-  concat $
-    filter
+  concat
+    $ filter
       ( \case
           (InstLabel label : _) -> S.member label labels
           _ -> undefined
       )
-      $ groupBy (const $ not . isLabel) insts
+    $ groupBy (const $ not . isLabel) insts
 
 optimize :: S.Set String -> [Inst] -> [Inst]
 optimize labels =

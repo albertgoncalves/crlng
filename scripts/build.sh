@@ -42,7 +42,7 @@ clang-format -i -verbose "$WD/src/"runtime.c &
 for x in "$WD/src"/*.hs; do
     (
         hlint "$x"
-        ormolu -m inplace "$x"
+        ormolu -i --no-cabal "$x"
     ) &
 done
 

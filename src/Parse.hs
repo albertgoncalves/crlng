@@ -155,7 +155,8 @@ func = do
   (Scope body returnExpr) <- scope
   return $
     Func (if label == "main" then "main_thread" else label) args $
-      Scope body $ tailCall returnExpr
+      Scope body $
+        tailCall returnExpr
 
 parse :: String -> [Func]
 parse = fst . head . readP_to_S (many1 func <* space <* eof)
