@@ -62,7 +62,7 @@ token :: ReadP a -> ReadP a
 token = (space *>)
 
 int :: ReadP Int
-int = token (read <$> munch1 isDigit)
+int = token $ read <$> munch1 isDigit
 
 str :: ReadP String
 str = token $ do

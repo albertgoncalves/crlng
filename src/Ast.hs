@@ -45,7 +45,7 @@ showScope n0 (Scope body expr) =
         map (indent n1 ++) $
           map (showStmt n1) body ++ [showExpr n1 expr]
     )
-    (indent n0)
+    $ indent n0
   where
     n1 = n0 + 1
 
@@ -56,4 +56,4 @@ showStmt n (StmtLet var scope) = printf "let %s %s" var $ showScope n scope
 instance Show Func where
   show (Func label [] scope) = printf "%s %s\n" label $ showScope 0 scope
   show (Func label args scope) =
-    printf "%s %s %s\n" label (unwords args) (showScope 0 scope)
+    printf "%s %s %s\n" label (unwords args) $ showScope 0 scope
