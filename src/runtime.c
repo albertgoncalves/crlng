@@ -43,8 +43,10 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
             }                              \
         } while (0)
 #else
-    #define EXIT_IF(_) \
-        do {           \
+    #define EXIT_IF(condition) \
+        do {                   \
+            if (condition) {   \
+            }                  \
         } while (0)
 #endif
 
