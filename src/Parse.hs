@@ -153,10 +153,7 @@ func :: ReadP Func
 func = do
   (label : args) <- many1 ident
   (Scope body returnExpr) <- scope
-  return $
-    Func (if label == "main" then "main_thread" else label) args $
-      Scope body $
-        tailCall returnExpr
+  return $ Func label args $ Scope body $ tailCall returnExpr
 
 parse :: String -> [Func]
 parse = fst . head . readP_to_S (many1 func <* space <* eof)

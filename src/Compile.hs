@@ -457,17 +457,17 @@ compileFuncArgs (arg : args) (reg : regs) = do
   compileFuncArgs args regs
 
 compileFunc :: Func -> State Compiler ()
-compileFunc (Func label args scope) = do
+compileFunc (Func label0 args scope) = do
   localsPre <- state $ \c -> (compilerLocals c, c)
   assert (null localsPre) $ return ()
   pushLocals
   rspPre <- getRsp
   assert (rspPre == 0) $ return ()
-  setInst $ InstLabel label
+  setInst $ InstLabel label1
   compileFuncArgs args argRegs
   setInst . InstCall =<< intoOpLabel "stack_overflow"
-  compileYield label
-  setInst . InstMov (OpReg RegRdi) =<< intoOpLabel =<< compileString label
+  compileYield label1
+  setInst . InstMov (OpReg RegRdi) =<< intoOpLabel =<< compileString label1
   setInst . InstCall =<< intoOpLabel "call_push"
   compileScope scope
   setInst . InstCall =<< intoOpLabel "call_pop"
@@ -476,6 +476,8 @@ compileFunc (Func label args scope) = do
   resetStack rspPre rspPost
   setInst InstRet
   popLocals
+  where
+    label1 = if label0 == "main" then "main_thread" else label0
 
 spawnToFunc :: String -> Int -> Func
 spawnToFunc func lenArgs =
