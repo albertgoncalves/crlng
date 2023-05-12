@@ -485,7 +485,9 @@ void call_pop(void) {
 __attribute__((noreturn)) void panic(void) {
     EXIT_IF(!THREAD);
     EXIT_IF(!THREAD->call);
-    fprintf(stderr, "Panic at\n");
+    fflush(stdout);
+    fflush(stderr);
+    fprintf(stderr, "\nPanic at\n");
     for (;;) {
         fprintf(stderr, "  `%s`", THREAD->call->label);
         THREAD->call = THREAD->call->prev;
