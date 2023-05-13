@@ -34,6 +34,7 @@ flags_c=(
     -Werror
     -Weverything
     -Wno-declaration-after-statement
+    -Wno-disabled-macro-expansion
     -Wno-padded
     -Wno-pointer-arith
 )

@@ -50,6 +50,14 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
         } while (0)
 #endif
 
+#if VERBOSE
+    #define VERBOSE_FPRINTF(...) fprintf(__VA_ARGS__)
+#else
+    #define VERBOSE_FPRINTF(...) \
+        do {                     \
+        } while (0)
+#endif
+
 #define CAP_BUFFER   (1 << 10)
 #define CAP_STACKS   (1 << 3)
 #define CAP_THREADS  CAP_STACKS
@@ -166,9 +174,7 @@ static Channel* alloc_channel(void) {
 }
 
 void memory_init(void) {
-#if VERBOSE
-    fprintf(stderr, "  [ Initializing memory ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Initializing memory ]\n");
     for (u32 i = 0; i < CAP_STACKS; ++i) {
         STACK_POOL[i] = &STACKS[(CAP_STACKS - 1) - i];
     }
@@ -235,9 +241,9 @@ static void free_call(Call* call) {
 static void queue_push(Thread* thread) {
     EXIT_IF(!thread);
     EXIT_IF(QUEUE.len < QUEUE.len_ready);
-#if VERBOSE
-    fprintf(stderr, "  [ Pushing thread (%p) onto queue ]\n", (void*)thread);
-#endif
+    VERBOSE_FPRINTF(stderr,
+                    "  [ Pushing thread (%p) onto queue ]\n",
+                    (void*)thread);
     if (QUEUE.len == 0) {
         EXIT_IF(QUEUE.first);
         EXIT_IF(QUEUE.last);
@@ -262,9 +268,7 @@ static Thread* queue_pop(void) {
     EXIT_IF(!QUEUE.first);
     EXIT_IF(!QUEUE.last);
     EXIT_IF(QUEUE.len == 0);
-#if VERBOSE
-    fprintf(stderr, "  [ Popping thread from queue ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Popping thread from queue ]\n");
     Thread* thread = QUEUE.first;
     if (QUEUE.first == QUEUE.last) {
         QUEUE.first = NULL;
@@ -284,9 +288,7 @@ static Thread* queue_pop(void) {
 
 Thread* thread_new(void (*resume)(void)) {
     EXIT_IF(!resume);
-#if VERBOSE
-    fprintf(stderr, "  [ Creating thread ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Creating thread ]\n");
     Thread* thread = alloc_thread();
     thread->resume = resume;
     Stack* stack = alloc_stack();
@@ -311,14 +313,12 @@ void thread_kill(Thread* thread) {
         EXIT_IF((void*)thread != &THREADS[0]);
         EXIT_IF(QUEUE.len != 1);
         EXIT_IF(QUEUE.len_ready != 1);
-#if VERBOSE
-        fprintf(stderr, "  [ Killing last thread (%p) ]\n", (void*)thread);
-#endif
+        VERBOSE_FPRINTF(stderr,
+                        "  [ Killing last thread (%p) ]\n",
+                        (void*)thread);
         EXIT(OK);
     }
-#if VERBOSE
-    fprintf(stderr, "  [ Killing thread (%p) ]\n", (void*)thread);
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Killing thread (%p) ]\n", (void*)thread);
     QUEUE.last = thread->prev;
     QUEUE.last->next = NULL;
     --QUEUE.len;
@@ -341,9 +341,7 @@ void thread_push_stack(Thread* thread, void* data) {
 }
 
 Channel* channel_new(void) {
-#if VERBOSE
-    fprintf(stderr, "  [ Creating channel ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Creating channel ]\n");
     Channel* channel = alloc_channel();
     channel->data_first = NULL;
     channel->data_last = NULL;
@@ -356,12 +354,10 @@ void channel_push_wait(Channel* channel, Thread* thread) {
     EXIT_IF(!channel);
     EXIT_IF(!thread);
     EXIT_IF(QUEUE.len_ready == 0);
-#if VERBOSE
-    fprintf(stderr,
-            "  [ Adding thread (%p) to wait list ]\n"
-            "  [ Pausing thread ]\n",
-            (void*)thread);
-#endif
+    VERBOSE_FPRINTF(stderr,
+                    "  [ Adding thread (%p) to wait list ]\n"
+                    "  [ Pausing thread ]\n",
+                    (void*)thread);
     ChannelWait* wait = alloc_wait();
     wait->thread = thread;
     wait->next = NULL;
@@ -384,9 +380,7 @@ static void channel_pop_wait(Channel* channel) {
     EXIT_IF(!channel->wait_first);
     EXIT_IF(!channel->wait_last);
     EXIT_IF(QUEUE.len == QUEUE.len_ready);
-#if VERBOSE
-    fprintf(stderr, "  [ Popping thread from wait list ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Popping thread from wait list ]\n");
     ChannelWait* channel_wait = channel->wait_first;
     channel_wait->thread->status = READY;
     ++QUEUE.len_ready;
@@ -401,9 +395,7 @@ static void channel_pop_wait(Channel* channel) {
 
 Bool channel_ready(Channel* channel) {
     EXIT_IF(!channel);
-#if VERBOSE
-    fprintf(stderr, "  [ Channel (%p) ready? ]\n", (void*)channel);
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Channel (%p) ready? ]\n", (void*)channel);
     if (channel->data_first && channel->wait_first) {
         channel_pop_wait(channel);
     }
@@ -445,9 +437,9 @@ void* channel_pop_data(Channel* channel) {
     EXIT_IF(!channel);
     EXIT_IF(!channel->data_first);
     EXIT_IF(!channel->data_last);
-#if VERBOSE
-    fprintf(stderr, "  [ Popping data from channel (%p) ]\n", (void*)channel);
-#endif
+    VERBOSE_FPRINTF(stderr,
+                    "  [ Popping data from channel (%p) ]\n",
+                    (void*)channel);
     ChannelData* channel_data = channel->data_first;
     void*        data = channel_data->data;
     if (channel_data == channel->data_last) {
@@ -462,9 +454,7 @@ void* channel_pop_data(Channel* channel) {
 
 void call_push(const char* label) {
     EXIT_IF(!THREAD);
-#if VERBOSE
-    fprintf(stderr, "  [ Pushing `%s` onto call stack ]\n", label);
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Pushing `%s` onto call stack ]\n", label);
     Call* call = alloc_call();
     call->label = label;
     call->prev = THREAD->call;
@@ -475,9 +465,9 @@ void call_pop(void) {
     EXIT_IF(!THREAD);
     EXIT_IF(!THREAD->call);
     Call* call = THREAD->call;
-#if VERBOSE
-    fprintf(stderr, "  [ Popping `%s` from call stack ]\n", call->label);
-#endif
+    VERBOSE_FPRINTF(stderr,
+                    "  [ Popping `%s` from call stack ]\n",
+                    call->label);
     THREAD->call = call->prev;
     free_call(call);
 }
@@ -502,26 +492,20 @@ __attribute__((noreturn)) void panic(void) {
 
 __attribute__((noreturn)) void scheduler(void) {
     EXIT_IF(QUEUE.len == 0);
-#if VERBOSE
-    fprintf(stderr, "  [ Resuming scheduler ]\n");
-#endif
+    VERBOSE_FPRINTF(stderr, "  [ Resuming scheduler ]\n");
     if (THREADS[0].status == DEAD) {
-#if VERBOSE
-        fprintf(stderr, "  [ Main thread is dead ]\n");
-#endif
+        VERBOSE_FPRINTF(stderr, "  [ Main thread is dead ]\n");
         EXIT(OK);
     }
     if (QUEUE.len_ready == 0) {
-#if VERBOSE
-        fprintf(stderr, "  [ Deadlock ]\n");
-#endif
+        VERBOSE_FPRINTF(stderr, "  [ Deadlock ]\n");
         EXIT(ERROR);
     }
+    VERBOSE_FPRINTF(stderr,
+                    "  [ %u thread(s) alive, %u thread(s) ready ]\n",
+                    QUEUE.len,
+                    QUEUE.len_ready);
 #if VERBOSE
-    fprintf(stderr,
-            "  [ %u thread(s) alive, %u thread(s) ready ]\n",
-            QUEUE.len,
-            QUEUE.len_ready);
     for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
         fprintf(stderr, "    > %p\n", (void*)thread);
     }
@@ -534,20 +518,20 @@ __attribute__((noreturn)) void scheduler(void) {
             break;
         }
         EXIT_IF(QUEUE.len < i);
-#if VERBOSE
-        fprintf(stderr, "  [ Thread (%p) paused, skipping ]\n", (void*)THREAD);
-#endif
+        VERBOSE_FPRINTF(stderr,
+                        "  [ Thread (%p) paused, skipping ]\n",
+                        (void*)THREAD);
     }
+    VERBOSE_FPRINTF(stderr,
+                    "  [ %u thread(s) alive, %u thread(s) ready ]\n",
+                    QUEUE.len,
+                    QUEUE.len_ready);
 #if VERBOSE
-    fprintf(stderr,
-            "  [ %u thread(s) alive, %u thread(s) ready ]\n",
-            QUEUE.len,
-            QUEUE.len_ready);
     for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
         fprintf(stderr, "    < %p\n", (void*)thread);
     }
-    fprintf(stderr, "  [ Running thread (%p) ]\n", (void*)THREAD);
 #endif
+    VERBOSE_FPRINTF(stderr, "  [ Running thread (%p) ]\n", (void*)THREAD);
     THREAD->resume();
     EXIT(ERROR);
 }
