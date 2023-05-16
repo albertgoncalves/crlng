@@ -47,6 +47,7 @@ data Reg
   = RegRsp
   | RegRbp
   | RegRax
+  | RegEax
   | RegRcx
   | RegRdx
   | RegR8
@@ -102,6 +103,7 @@ instance Show Reg where
   show RegRsp = "rsp"
   show RegRbp = "rbp"
   show RegRax = "rax"
+  show RegEax = "eax"
   show RegRcx = "rcx"
   show RegRdx = "rdx"
   show RegR8 = "r8"
@@ -186,6 +188,9 @@ quadWord = 8
 
 rax :: Op
 rax = OpReg RegRax
+
+eax :: Op
+eax = OpReg RegEax
 
 addRsp :: Int -> State Compiler ()
 addRsp n = modify $ \c -> c {compilerRsp = compilerRsp c + n}
@@ -383,7 +388,7 @@ compileExpr (ExprCall _ "spawn" (ExprVar func : args)) = do
   compileYield . printf "spawn_%d" =<< nextK
 compileExpr (ExprCall _ "printf" args) = do
   compileCallArgs args argRegs
-  setInst $ InstXor rax rax
+  setInst $ InstXor eax eax
   setInst . InstCall =<< intoOpLabel "printf"
   setInstPush rax
 compileExpr (ExprCall _ "kill" []) = do
