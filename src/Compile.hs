@@ -552,6 +552,7 @@ compile funcs =
           "extrn receive",
           "extrn send",
           "extrn stack_overflow",
+          "extrn sleep",
           "extrn thread_new",
           "extrn thread_kill",
           "extrn thread_push_stack",

@@ -9,6 +9,7 @@ public SCHED_RBP
 public receive
 public send
 public stack_overflow
+public sleep
 
 extrn stderr
 extrn setlinebuf
@@ -19,6 +20,7 @@ extrn memory_init
 
 extrn thread_new
 extrn thread_kill
+extrn thread_sleep
 
 extrn channel_ready
 extrn channel_push_data
@@ -97,6 +99,16 @@ section '.text' executable
         jg      stack_overflow_ret
         EXIT
     stack_overflow_ret:
+        ret
+
+
+    sleep:
+        mov     rsi, rdi
+        mov     rdi, [THREAD]
+        call    thread_sleep
+        YIELD   sleep_yield
+    sleep_yield:
+        LOAD_THREAD_STACK
         ret
 
 

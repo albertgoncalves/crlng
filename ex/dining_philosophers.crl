@@ -6,14 +6,18 @@ philosopher left_fork right_fork done {
     (receive right_fork)
 
     (printf " [ %p ] dining\n" (self))
+    (sleep 10)
 
     (printf " [ %p ] returning left fork\n" (self))
+    (sleep 10)
     (send left_fork 0)
 
     (printf " [ %p ] returning right fork\n" (self))
+    (sleep 10)
     (send right_fork 0)
 
     (printf " [ %p ] thinking\n" (self))
+    (sleep 10)
     (send done 0)
 }
 

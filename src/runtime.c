@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 
 #define STATIC_ASSERT(condition) _Static_assert(condition, "!(" #condition ")")
@@ -7,6 +8,8 @@
 typedef uint8_t  u8;
 typedef uint32_t u32;
 typedef uint64_t u64;
+
+typedef struct timespec Time;
 
 STATIC_ASSERT(sizeof(void*) == sizeof(u64));
 
@@ -16,6 +19,13 @@ typedef enum {
 } Bool;
 
 STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
+
+#define U64_MAX 0xFFFFFFFFFFFFFFFF
+
+#define NANO_PER_SECOND  1000000000llu
+#define NANO_PER_MILLI   1000000llu
+#define MICRO_PER_SECOND 1000000llu
+#define NANO_PER_MICRO   (NANO_PER_SECOND / MICRO_PER_SECOND)
 
 #define OK    0
 #define ERROR 1
@@ -93,6 +103,7 @@ struct Thread {
     Thread*      prev;
     Thread*      next;
     Call*        call;
+    u64          wake_at;
     ThreadStatus status;
 };
 
@@ -101,6 +112,7 @@ typedef struct {
     Thread* last;
     u32     len;
     u32     len_ready;
+    u32     len_sleeping;
 } ThreadQueue;
 
 typedef struct ChannelWait ChannelWait;
@@ -156,6 +168,7 @@ void memory_init(void);
 Thread* thread_new(void (*)(void));
 void    thread_kill(Thread*);
 void    thread_push_stack(Thread*, void*);
+void    thread_sleep(Thread*, u64);
 
 Channel* channel_new(void);
 Bool     channel_ready(Channel*);
@@ -167,6 +180,17 @@ void call_push(const char*);
 void call_pop(void);
 
 __attribute__((noreturn)) void panic(void);
+
+static u64 now(void) {
+    Time time;
+    EXIT_IF(clock_gettime(CLOCK_MONOTONIC, &time));
+    return ((u64)time.tv_sec * NANO_PER_SECOND) + (u64)time.tv_nsec;
+}
+
+static void sleep_until(u64 future) {
+    EXIT_IF(future < now());
+    EXIT_IF(usleep(((u32)((future - now()) / NANO_PER_MICRO)) + 1));
+}
 
 static Channel* alloc_channel(void) {
     EXIT_IF(CAP_CHANNELS <= LEN_CHANNELS);
@@ -296,6 +320,7 @@ Thread* thread_new(void (*resume)(void)) {
     thread->rbp = &stack->buffer[CAP_BUFFER];
     thread->rsp = &stack->buffer[CAP_BUFFER];
     thread->call = NULL;
+    thread->wake_at = U64_MAX;
     thread->status = READY;
     queue_push(thread);
     return thread;
@@ -338,6 +363,19 @@ void thread_push_stack(Thread* thread, void* data) {
 #endif
     --thread->rsp;
     *thread->rsp = data;
+}
+
+void thread_sleep(Thread* thread, u64 milliseconds) {
+    EXIT_IF(!thread);
+    EXIT_IF(QUEUE.len_ready == 0);
+    VERBOSE_FPRINTF(stderr,
+                    "  [ Putting thread to sleep for `%lu ms` ]\n"
+                    "  [ Pausing thread ]\n",
+                    milliseconds);
+    THREAD->status = PAUSED;
+    THREAD->wake_at = now() + (NANO_PER_MILLI * milliseconds);
+    --QUEUE.len_ready;
+    ++QUEUE.len_sleeping;
 }
 
 Channel* channel_new(void) {
@@ -498,13 +536,35 @@ __attribute__((noreturn)) void scheduler(void) {
         EXIT(OK);
     }
     if (QUEUE.len_ready == 0) {
-        VERBOSE_FPRINTF(stderr, "  [ Deadlock ]\n");
-        EXIT(ERROR);
+        if (QUEUE.len_sleeping != 0) {
+            u64 wake_at = U64_MAX;
+            for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
+                if ((thread->status == PAUSED) & (thread->wake_at < wake_at)) {
+                    wake_at = thread->wake_at;
+                }
+            }
+            EXIT_IF(wake_at == U64_MAX);
+            if (now() < wake_at) {
+                VERBOSE_FPRINTF(
+                    stderr,
+                    "  [ "
+                    "No threads ready, scheduler sleeping for `%lu ns` ]\n",
+                    wake_at - now());
+                sleep_until(wake_at);
+            }
+        } else {
+            VERBOSE_FPRINTF(stderr, "  [ Deadlock ]\n");
+            EXIT(ERROR);
+        }
     }
     VERBOSE_FPRINTF(stderr,
-                    "  [ %u thread(s) alive, %u thread(s) ready ]\n",
+                    "  [ "
+                    "%u thread(s) alive, "
+                    "%u thread(s) ready, "
+                    "%u thread(s) sleeping ]\n",
                     QUEUE.len,
-                    QUEUE.len_ready);
+                    QUEUE.len_ready,
+                    QUEUE.len_sleeping);
 #if VERBOSE
     for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
         fprintf(stderr, "    > %p\n", (void*)thread);
@@ -517,15 +577,29 @@ __attribute__((noreturn)) void scheduler(void) {
         if (THREAD->status == READY) {
             break;
         }
+        if (THREAD->wake_at <= now()) {
+            VERBOSE_FPRINTF(stderr,
+                            "  [ Waking up thread (%p) ]\n",
+                            (void*)THREAD);
+            THREAD->status = READY;
+            THREAD->wake_at = U64_MAX;
+            ++QUEUE.len_ready;
+            --QUEUE.len_sleeping;
+            break;
+        }
         EXIT_IF(QUEUE.len < i);
         VERBOSE_FPRINTF(stderr,
                         "  [ Thread (%p) paused, skipping ]\n",
                         (void*)THREAD);
     }
     VERBOSE_FPRINTF(stderr,
-                    "  [ %u thread(s) alive, %u thread(s) ready ]\n",
+                    "  [ "
+                    "%u thread(s) alive, "
+                    "%u thread(s) ready, "
+                    "%u thread(s) sleeping ]\n",
                     QUEUE.len,
-                    QUEUE.len_ready);
+                    QUEUE.len_ready,
+                    QUEUE.len_sleeping);
 #if VERBOSE
     for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
         fprintf(stderr, "    < %p\n", (void*)thread);

@@ -26,6 +26,7 @@ flags_hs=(
 )
 flags_c=(
     -c
+    -D_GNU_SOURCE
     "-ferror-limit=1"
     -fshort-enums
     "-march=native"

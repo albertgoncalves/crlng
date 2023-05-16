@@ -1,0 +1,24 @@
+timer milliseconds done {
+    (printf "Sleeping for `%lu ms`\n" milliseconds)
+    (sleep milliseconds)
+    (send done milliseconds)
+}
+
+main {
+    let done0 { (channel) }
+    let done1 { (channel) }
+    let done2 { (channel) }
+    let done3 { (channel) }
+
+    (spawn timer 500  done0)
+    (spawn timer 1000 done1)
+    (spawn timer 750  done2)
+    (spawn timer 10   done3)
+
+    (receive done0)
+    (receive done1)
+    (receive done2)
+    (receive done3)
+
+    (printf "Done!\n")
+}
