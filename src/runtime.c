@@ -75,6 +75,7 @@ STATIC_ASSERT(sizeof(Bool) == sizeof(u8));
 #define CAP_DATAS    (1 << 4)
 #define CAP_WAITS    (1 << 3)
 #define CAP_CALLS    (1 << 4)
+#define CAP_SLEEPS   (1 << 4)
 
 typedef struct {
     void* buffer[CAP_BUFFER];
@@ -144,6 +145,7 @@ static Thread      THREADS[CAP_THREADS];
 static ChannelData DATAS[CAP_DATAS];
 static ChannelWait WAITS[CAP_WAITS];
 static Call        CALLS[CAP_CALLS];
+static u64         SLEEPS[CAP_SLEEPS];
 
 static Stack*       STACK_POOL[CAP_STACKS];
 static Thread*      THREAD_POOL[CAP_THREADS];
@@ -156,6 +158,8 @@ static u32 LEN_THREADS = CAP_THREADS;
 static u32 LEN_DATAS = CAP_DATAS;
 static u32 LEN_WAITS = CAP_WAITS;
 static u32 LEN_CALLS = CAP_CALLS;
+
+static u32 LEN_SLEEPS = 0;
 
 static ThreadQueue QUEUE = {0};
 
@@ -365,6 +369,65 @@ void thread_push_stack(Thread* thread, void* data) {
     *thread->rsp = data;
 }
 
+static u32 sleep_parent(u32 i) {
+    return ((i + 1) / 2) - 1;
+}
+
+static u32 sleep_left_sibling(u32 i) {
+    return ((i + 1) * 2) - 1;
+}
+
+static void sleep_swap(u32 i, u32 j) {
+    const u64 x = SLEEPS[i];
+    SLEEPS[i] = SLEEPS[j];
+    SLEEPS[j] = x;
+}
+
+static void sleep_balance_up(u32 i) {
+    u32 j = sleep_parent(i);
+    while (0 < i) {
+        if (SLEEPS[i] < SLEEPS[j]) {
+            sleep_swap(i, j);
+        }
+        i = j;
+        j = sleep_parent(i);
+    }
+}
+
+static void sleep_balance_down(u32 i) {
+    for (;;) {
+        const u32 l = sleep_left_sibling(i);
+        const u32 r = l + 1;
+        u32       m = i;
+        if ((l < LEN_SLEEPS) && (SLEEPS[l] < SLEEPS[m])) {
+            m = l;
+        }
+        if ((r < LEN_SLEEPS) && (SLEEPS[r] < SLEEPS[m])) {
+            m = r;
+        }
+        if (i == m) {
+            return;
+        }
+        sleep_swap(i, m);
+        i = m;
+    }
+}
+
+static void sleep_push(u64 wake_at) {
+    EXIT_IF(CAP_SLEEPS <= LEN_SLEEPS);
+    const u32 i = LEN_SLEEPS++;
+    SLEEPS[i] = wake_at;
+    sleep_balance_up(i);
+}
+
+static u64 sleep_pop(void) {
+    EXIT_IF(LEN_SLEEPS == 0);
+    const u64 wake_at = SLEEPS[0];
+    SLEEPS[0] = SLEEPS[--LEN_SLEEPS];
+    sleep_balance_down(0);
+    return wake_at;
+}
+
 void thread_sleep(Thread* thread, u64 milliseconds) {
     EXIT_IF(!thread);
     EXIT_IF(QUEUE.len_ready == 0);
@@ -373,7 +436,9 @@ void thread_sleep(Thread* thread, u64 milliseconds) {
                     "  [ Pausing thread ]\n",
                     milliseconds);
     THREAD->status = PAUSED;
-    THREAD->wake_at = now() + (NANO_PER_MILLI * milliseconds);
+    const u64 wake_at = now() + (NANO_PER_MILLI * milliseconds);
+    THREAD->wake_at = wake_at;
+    sleep_push(wake_at);
     --QUEUE.len_ready;
     ++QUEUE.len_sleeping;
 }
@@ -537,13 +602,13 @@ __attribute__((noreturn)) void scheduler(void) {
     }
     if (QUEUE.len_ready == 0) {
         if (QUEUE.len_sleeping != 0) {
-            u64 wake_at = U64_MAX;
-            for (Thread* thread = QUEUE.first; thread; thread = thread->next) {
-                if ((thread->status == PAUSED) & (thread->wake_at < wake_at)) {
-                    wake_at = thread->wake_at;
-                }
-            }
-            EXIT_IF(wake_at == U64_MAX);
+            EXIT_IF(LEN_SLEEPS == 0);
+            EXIT_IF(LEN_SLEEPS < QUEUE.len_sleeping);
+            u64 wake_at;
+            do {
+                VERBOSE_FPRINTF(stderr, "  [ Popping sleep ]\n");
+                wake_at = sleep_pop();
+            } while ((LEN_SLEEPS != 0) && (wake_at < now()));
             if (now() < wake_at) {
                 VERBOSE_FPRINTF(
                     stderr,
