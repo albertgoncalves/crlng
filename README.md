@@ -5,7 +5,7 @@ Dependencies
  - [Clang](https://clang.llvm.org/)
 ```console
 $ clang --version
-clang version 14.0.6
+clang version 15.0.7
 Target: x86_64-pc-linux-gnu
 Thread model: posix
 InstalledDir: /usr/bin
@@ -18,7 +18,7 @@ flat assembler  version 1.73.30
  - [Nix](https://nixos.org/download.html)
 ```console
 $ nix --version
-nix (Nix) 2.11.1
+nix (Nix) 2.15.0
 ```
 
 Quick start
@@ -49,7 +49,7 @@ fib n a b {
     }
 }
 
-main_thread {
+main {
     (/* tail-call */ printf "%lu\n" (fib 50 0 1))
 }
 
