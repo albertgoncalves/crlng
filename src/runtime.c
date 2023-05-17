@@ -137,15 +137,11 @@ typedef struct {
     ChannelWait* wait_last;
 } Channel;
 
-static Channel CHANNELS[CAP_CHANNELS];
-static u32     LEN_CHANNELS = 0;
-
 static Stack       STACKS[CAP_STACKS];
 static Thread      THREADS[CAP_THREADS];
 static ChannelData DATAS[CAP_DATAS];
 static ChannelWait WAITS[CAP_WAITS];
 static Call        CALLS[CAP_CALLS];
-static u64         SLEEPS[CAP_SLEEPS];
 
 static Stack*       STACK_POOL[CAP_STACKS];
 static Thread*      THREAD_POOL[CAP_THREADS];
@@ -159,6 +155,10 @@ static u32 LEN_DATAS = CAP_DATAS;
 static u32 LEN_WAITS = CAP_WAITS;
 static u32 LEN_CALLS = CAP_CALLS;
 
+static Channel CHANNELS[CAP_CHANNELS];
+static u64     SLEEPS[CAP_SLEEPS];
+
+static u32 LEN_CHANNELS = 0;
 static u32 LEN_SLEEPS = 0;
 
 static ThreadQueue QUEUE = {0};
@@ -415,6 +415,7 @@ static void sleep_balance_down(u32 i) {
 
 static void sleep_push(u64 wake_at) {
     EXIT_IF(CAP_SLEEPS <= LEN_SLEEPS);
+    EXIT_IF(wake_at == U64_MAX);
     const u32 i = LEN_SLEEPS++;
     SLEEPS[i] = wake_at;
     sleep_balance_up(i);
