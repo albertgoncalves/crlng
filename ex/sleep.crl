@@ -4,21 +4,26 @@ timer milliseconds done {
     (send done milliseconds)
 }
 
+iter c n {
+    if (= n 0) {
+        0
+    } else {
+        (printf " . %d\n" (receive c))
+        (iter c (- n 1))
+    }
+}
+
 main {
-    let done0 { (channel) }
-    let done1 { (channel) }
-    let done2 { (channel) }
-    let done3 { (channel) }
+    let done {
+        (channel)
+    }
 
-    (spawn timer 500  done0)
-    (spawn timer 1000 done1)
-    (spawn timer 750  done2)
-    (spawn timer 10   done3)
+    (spawn timer 500  done)
+    (spawn timer 1000 done)
+    (spawn timer 750  done)
+    (spawn timer 10   done)
 
-    (receive done0)
-    (receive done1)
-    (receive done2)
-    (receive done3)
+    (iter done 4)
 
     (printf "Done!\n")
 }
