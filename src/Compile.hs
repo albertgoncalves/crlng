@@ -399,6 +399,10 @@ compileExpr (ExprCall _ "kill" []) = do
   setInst . InstCall =<< intoOpLabel "thread_kill"
   setInstsJumpScheduler
   setInstPush $ OpImm 0
+compileExpr (ExprCall tailCall "channel" []) =
+  compileExpr (ExprCall tailCall "channel_new" [])
+compileExpr (ExprCall tailCall "ready" args) =
+  compileExpr (ExprCall tailCall "channel_ready" args)
 compileExpr (ExprCall False label args) = do
   compileCallArgs args argRegs
   setInst . InstCall =<< intoOpLabel label

@@ -87,18 +87,13 @@ ident = token $ do
 operator :: ReadP String
 operator = token $ (: []) <$> choice (map char "=+-*/%")
 
-unpackLabel :: String -> String
-unpackLabel "channel" = "channel_new"
-unpackLabel "ready" = "channel_ready"
-unpackLabel label = label
-
 exprCall :: ReadP Expr
 exprCall = do
   _ <- token $ char '('
   label <- choice [operator, ident]
   args <- many expr
   _ <- token $ char ')'
-  return $ ExprCall False (unpackLabel label) args
+  return $ ExprCall False label args
 
 exprIfElse :: ReadP Expr
 exprIfElse = do
