@@ -1,46 +1,36 @@
-worker_a channel {
-    (send channel 0)
+worker_a c {
+    (sleep 100)
+    (send c 0)
 }
 
-worker_b channel {
-    (send channel "???")
+worker_b c {
+    (sleep 50)
+    (send c 1)
 }
 
-select a b {
-    if (ready a) {
-        (receive a)
-        (printf " . received `a`\n")
-    } else if (ready b) {
-        (printf " . received `b`, %s\n" (receive b))
-    } else {
-        (printf " . received nothing\n")
+f c {
+    let x {
+        (receive c)
     }
-}
-
-work n {
-    if (= n 0) {
-        0
+    if (= x 0) {
+        (printf " . received `a`\n")
+    } else if (= x 1) {
+        (printf " . received `b`\n")
     } else {
-        (work (- n 1))
+        (panic)
     }
 }
 
 main {
-    let a {
-        (channel)
-    }
-    let b {
+    let c {
         (channel)
     }
 
-    (spawn worker_a a)
-    (spawn worker_b b)
+    (spawn worker_a c)
+    (spawn worker_b c)
 
-    (work 3)
-
-    (select a b)
-    (select a b)
-    (select a b)
+    (f c)
+    (f c)
 
     (printf "Done!\n")
 }

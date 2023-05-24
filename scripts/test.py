@@ -63,7 +63,11 @@ class Tests(TestCase):
         ]))
 
     def test_select(self):
-        self.into_test("select", None)
+        self.into_test("select", "\n".join([
+            " . received `b`",
+            " . received `a`",
+            "Done!",
+        ]))
 
 
 if __name__ == "__main__":
