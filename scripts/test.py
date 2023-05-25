@@ -21,6 +21,21 @@ class Tests(TestCase):
     def test_ackermann_peter(self):
         self.into_test("ackermann_peter", "5, 13, 29, 61, 125")
 
+    def test_channel_send(self):
+        self.into_test("channel_send", "\n".join([
+            "9",
+            "8",
+            "7",
+            "6",
+            "5",
+            "4",
+            "3",
+            "2",
+            "1",
+            "0",
+            "Done!",
+        ]))
+
     def test_collatz(self):
         self.into_test(
             "collatz",
