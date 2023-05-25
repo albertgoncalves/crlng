@@ -1,15 +1,16 @@
-f a b {
-    let format {
-        "%ld,%ld\n"
-    }
-    (printf format (/      a       b)  (%      a       b))
-    (printf format (/ (- 0 a)      b)  (% (- 0 a)      b))
-    (printf format (/      a  (- 0 b)) (%      a  (- 0 b)))
-    (printf format (/ (- 0 a) (- 0 b)) (% (- 0 a) (- 0 b)))
+f1 a b {
+    (printf "%ld,%ld\n" a b)
+}
+
+f0 a b {
+    (f1 (/      a       b)  (%      a       b))
+    (f1 (/ (- 0 a)      b)  (% (- 0 a)      b))
+    (f1 (/      a  (- 0 b)) (%      a  (- 0 b)))
+    (f1 (/ (- 0 a) (- 0 b)) (% (- 0 a) (- 0 b)))
 }
 
 main {
-    (f 34 16)
-    (f 34 17)
-    (f 34 18)
+    (f0 34 16)
+    (f0 34 17)
+    (f0 34 18)
 }

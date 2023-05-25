@@ -21,6 +21,15 @@ philosopher left_fork right_fork done {
     (send done 0)
 }
 
+iter c n {
+    if (= n 0) {
+        0
+    } else {
+        (receive c)
+        (iter c (- n 1))
+    }
+}
+
 main {
     let fork0 { (channel) }
     let fork1 { (channel) }
@@ -34,24 +43,16 @@ main {
     (send fork3 0)
     (send fork4 0)
 
-    let done0 { (channel) }
-    let done1 { (channel) }
-    let done2 { (channel) }
-    let done3 { (channel) }
-    let done4 { (channel) }
+    let done { (channel) }
 
-    (spawn philosopher fork0 fork1 done0)
-    (spawn philosopher fork1 fork2 done1)
-    (spawn philosopher fork2 fork3 done2)
-    (spawn philosopher fork3 fork4 done3)
+    (spawn philosopher fork0 fork1 done)
+    (spawn philosopher fork1 fork2 done)
+    (spawn philosopher fork2 fork3 done)
+    (spawn philosopher fork3 fork4 done)
 
-    (spawn philosopher fork0 fork4 done4)
+    (spawn philosopher fork0 fork4 done)
 
-    (receive done0)
-    (receive done1)
-    (receive done2)
-    (receive done3)
-    (receive done4)
+    (iter done 5)
 
     (printf "Done!\n")
 }
