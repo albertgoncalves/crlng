@@ -474,7 +474,6 @@ compileFunc (Func label0 args scope) = do
   assert (rspPre == 0) $ return ()
   setInst $ InstLabel label1
   compileFuncArgs args argRegs
-  setInst . InstCall =<< intoOpLabel "stack_overflow"
   compileYield label1
   setInst . InstMov (OpReg RegRdi) =<< intoOpLabel =<< compileString label1
   setInst . InstCall =<< intoOpLabel "call_push"
@@ -560,7 +559,6 @@ compile funcs =
           "extrn panic",
           "extrn receive",
           "extrn send",
-          "extrn stack_overflow",
           "extrn sleep",
           "extrn thread_new",
           "extrn thread_kill",
