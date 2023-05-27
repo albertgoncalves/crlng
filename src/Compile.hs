@@ -35,6 +35,7 @@ data Inst
   | InstCmovns Op Op
   | InstLabel String
   | InstRet
+  | InstFlag String Int
 
 data Op
   = OpImm Int
@@ -92,6 +93,7 @@ instance Show Inst where
     printf "\tcmovns %s, %s" (show opDst) (show opSrc)
   show (InstLabel label) = printf "%s:" label
   show InstRet = "\tret"
+  show (InstFlag message int) = printf "\t\t; %s %d" message int
 
 instance Show Op where
   show (OpImm x) = show x
@@ -297,8 +299,10 @@ setInstsJumpScheduler = do
 
 compileYield :: String -> State Compiler ()
 compileYield label = do
+  flag <- InstFlag "compileYield" <$> nextK
   setInsts
-    [ InstMov rax $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
+    [ flag,
+      InstMov rax $ OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0,
       InstMov
         (OpAddrOffset $ AddrOffset (AddrReg RegRax) quadWord)
         (OpReg RegRsp),
@@ -317,7 +321,8 @@ compileYield label = do
       InstMov (OpReg RegRbp) $
         OpAddrOffset $
           AddrOffset (AddrReg RegRax) $
-            quadWord * 2
+            quadWord * 2,
+      flag
     ]
   where
     yieldLabel = intoYieldLabel label
