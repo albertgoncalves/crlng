@@ -549,15 +549,61 @@ optimizeUnreachable (InstRet : _ : insts) =
   optimizeUnreachable $ InstRet : insts
 optimizeUnreachable (inst : insts) = inst : optimizeUnreachable insts
 
+getOpLabel :: Inst -> Maybe String
+getOpLabel (InstPush (OpLabel label)) = Just label
+getOpLabel (InstPop (OpLabel _)) = undefined
+getOpLabel (InstMov (OpLabel _) _) = undefined
+getOpLabel (InstMov _ (OpLabel label)) = Just label
+getOpLabel (InstCall (OpLabel label)) = Just label
+getOpLabel (InstJmp (OpLabel label)) = Just label
+getOpLabel (InstJz (OpLabel label)) = Just label
+getOpLabel (InstJnz (OpLabel label)) = Just label
+getOpLabel (InstJge (OpLabel label)) = Just label
+getOpLabel (InstCmp (OpLabel _) _) = undefined
+getOpLabel (InstCmp _ (OpLabel _)) = undefined
+getOpLabel (InstTest (OpLabel _) _) = undefined
+getOpLabel (InstTest _ (OpLabel _)) = undefined
+getOpLabel (InstXor (OpLabel _) _) = undefined
+getOpLabel (InstXor _ (OpLabel _)) = undefined
+getOpLabel (InstAdd (OpLabel _) _) = undefined
+getOpLabel (InstAdd _ (OpLabel _)) = undefined
+getOpLabel (InstSub (OpLabel _) _) = undefined
+getOpLabel (InstSub _ (OpLabel _)) = undefined
+getOpLabel (InstIMul (OpLabel _) _) = undefined
+getOpLabel (InstIMul _ (OpLabel _)) = undefined
+getOpLabel (InstIDiv (OpLabel _)) = undefined
+getOpLabel (InstSets (OpLabel _)) = undefined
+getOpLabel (InstCmovz (OpLabel _) _) = undefined
+getOpLabel (InstCmovz _ (OpLabel _)) = undefined
+getOpLabel (InstCmovns (OpLabel _) _) = undefined
+getOpLabel (InstCmovns _ (OpLabel _)) = undefined
+getOpLabel _ = Nothing
+
+getInstLabel :: Inst -> Maybe String
+getInstLabel (InstLabel label) = Just label
+getInstLabel _ = Nothing
+
+getOpLabels :: [Inst] -> S.Set String
+getOpLabels = S.fromList . mapMaybe getOpLabel
+
+getInstLabels :: [Inst] -> S.Set String
+getInstLabels = S.fromList . mapMaybe getInstLabel
+
 optimizeDeadCode :: S.Set String -> [Inst] -> [Inst]
-optimizeDeadCode labels insts =
-  concat
-    $ filter
-      ( \case
-          (InstLabel label : _) -> S.member label labels
-          _ -> undefined
-      )
-    $ groupBy (const $ not . isLabel) insts
+optimizeDeadCode opLabels0 insts0
+  | instLabels `S.isSubsetOf` opLabels1 = insts1
+  | otherwise = optimizeDeadCode opLabels1 insts1
+  where
+    insts1 =
+      concat
+        $ filter
+          ( \case
+              (InstLabel label : _) -> S.member label opLabels0
+              _ -> undefined
+          )
+        $ groupBy (const $ not . isLabel) insts0
+    opLabels1 = S.insert "main_thread" $ getOpLabels insts1
+    instLabels = getInstLabels insts1
 
 optimize :: S.Set String -> [Inst] -> [Inst]
 optimize labels =
