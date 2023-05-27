@@ -27,6 +27,12 @@ showExpr n (ExprCall True label args) =
   printf "(/* tail-call */ %s %s)" label $ unwords $ map (showExpr n) args
 showExpr n (ExprCall False label args) =
   printf "(%s %s)" label $ unwords $ map (showExpr n) args
+showExpr n (ExprIfElse cond scopeTrue (Scope [] expr@(ExprIfElse {}))) =
+  printf
+    "if %s %s else %s"
+    (showExpr n cond)
+    (showScope n scopeTrue)
+    (showExpr n expr)
 showExpr n (ExprIfElse cond scopeTrue scopeFalse) =
   printf
     "if %s %s else %s"
