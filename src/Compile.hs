@@ -22,6 +22,7 @@ data Inst
   | InstJmp Op
   | InstJz Op
   | InstJnz Op
+  | InstJge Op
   | InstCmp Op Op
   | InstTest Op Op
   | InstXor Op Op
@@ -35,6 +36,7 @@ data Inst
   | InstCmovns Op Op
   | InstLabel String
   | InstRet
+  | InstSyscall
   | InstFlag String Int
 
 data Op
@@ -76,6 +78,7 @@ instance Show Inst where
   show (InstJmp op) = printf "\tjmp %s" $ show op
   show (InstJz op) = printf "\tjz %s" $ show op
   show (InstJnz op) = printf "\tjnz %s" $ show op
+  show (InstJge op) = printf "\tjge %s" $ show op
   show (InstCmp opDst opSrc) = printf "\tcmp %s, %s" (show opDst) (show opSrc)
   show (InstTest opDst opSrc) =
     printf "\ttest %s, %s" (show opDst) (show opSrc)
@@ -93,6 +96,7 @@ instance Show Inst where
     printf "\tcmovns %s, %s" (show opDst) (show opSrc)
   show (InstLabel label) = printf "%s:" label
   show InstRet = "\tret"
+  show InstSyscall = "\tsyscall"
   show (InstFlag message int) = printf "\t\t; %s %d" message int
 
 instance Show Op where
@@ -470,6 +474,28 @@ compileFuncArgs (arg : args) (reg : regs) = do
   setLocal arg
   compileFuncArgs args regs
 
+compileStackBoundsCheck :: State Compiler ()
+compileStackBoundsCheck = do
+  flag <- InstFlag "compileStackBoundsCheck" <$> nextK
+  label <- printf "_stack_bounds_check_%d_" <$> nextK
+  setInsts
+    [ flag,
+      InstMov rax (OpAddrOffset $ AddrOffset (AddrLabel "THREAD") 0),
+      InstMov (OpReg RegR10) $ OpAddrOffset $ AddrOffset (AddrReg RegRax) 24,
+      InstMov (OpReg RegR11) (OpReg RegRsp),
+      -- NOTE: This overhead is for `printf` and other `stdlib` functions.
+      InstSub (OpReg RegR11) (OpImm 2048),
+      InstCmp (OpReg RegR11) (OpReg RegR10)
+    ]
+  setInst . InstJge =<< intoOpLabel label
+  setInsts
+    [ InstMov (OpReg RegRdi) (OpImm 1),
+      InstMov rax (OpImm 60),
+      InstSyscall,
+      InstLabel label,
+      flag
+    ]
+
 compileFunc :: Func -> State Compiler ()
 compileFunc (Func label0 args scope) = do
   localsPre <- state $ \c -> (compilerLocals c, c)
@@ -478,6 +504,7 @@ compileFunc (Func label0 args scope) = do
   rspPre <- getRsp
   assert (rspPre == 0) $ return ()
   setInst $ InstLabel label1
+  compileStackBoundsCheck
   compileFuncArgs args argRegs
   compileYield label1
   setInst . InstMov (OpReg RegRdi) =<< intoOpLabel =<< compileString label1
