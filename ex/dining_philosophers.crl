@@ -1,23 +1,27 @@
 philosopher left_fork right_fork done {
-    (printf " [ %p ] waiting for left fork\n" (self))
+    let name { (self) }
+    let milliseconds { 10 }
+
+    (printf " [ %p ] waiting for left fork\n" name)
     (receive left_fork)
+    (sleep milliseconds)
 
-    (printf " [ %p ] waiting for right fork\n" (self))
+    (printf " [ %p ] waiting for right fork\n" name)
     (receive right_fork)
+    (sleep milliseconds)
 
-    (printf " [ %p ] dining\n" (self))
-    (sleep 10)
+    (printf " [ %p ] dining\n" name)
+    (sleep milliseconds)
 
-    (printf " [ %p ] returning left fork\n" (self))
-    (sleep 10)
+    (printf " [ %p ] returning left fork\n" name)
     (send left_fork 0)
+    (sleep milliseconds)
 
-    (printf " [ %p ] returning right fork\n" (self))
-    (sleep 10)
+    (printf " [ %p ] returning right fork\n" name)
     (send right_fork 0)
+    (sleep milliseconds)
 
-    (printf " [ %p ] thinking\n" (self))
-    (sleep 10)
+    (printf " [ %p ] thinking\n" name)
     (send done 0)
 }
 
