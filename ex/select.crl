@@ -1,10 +1,10 @@
 worker_a c {
-    (sleep 100)
+    (sleep 20)
     (send c 0)
 }
 
 worker_b c {
-    (sleep 50)
+    (sleep 10)
     (send c 1)
 }
 

@@ -8,7 +8,7 @@ iter c n {
     if (= n 0) {
         0
     } else {
-        (printf " . %d\n" (receive c))
+        (printf "Slept for `%ld ms`\n" (receive c))
         (iter c (- n 1))
     }
 }
@@ -18,10 +18,10 @@ main {
         (channel)
     }
 
-    (spawn timer 500  done)
-    (spawn timer 1000 done)
-    (spawn timer 750  done)
-    (spawn timer 10   done)
+    (spawn timer 50 done)
+    (spawn timer 99 done)
+    (spawn timer 75 done)
+    (spawn timer 10 done)
 
     (iter done 4)
 

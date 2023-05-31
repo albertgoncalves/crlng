@@ -1,11 +1,16 @@
 ping_pong in out done message {
+    let milliseconds {
+        10
+    }
     let n {
+        (sleep milliseconds)
         (receive in)
     }
     if (= n 0) {
         (send done "Done!")
     } else {
         (printf "%s\n" message)
+        (sleep milliseconds)
         (send out (- n 1))
         (ping_pong in out done message)
     }

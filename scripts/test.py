@@ -84,6 +84,19 @@ class Tests(TestCase):
             "Done!",
         ]))
 
+    def test_sleep(self):
+        self.into_test("sleep", "\n".join([
+            "Sleeping for `50 ms`",
+            "Sleeping for `99 ms`",
+            "Sleeping for `75 ms`",
+            "Sleeping for `10 ms`",
+            "Slept for `10 ms`",
+            "Slept for `50 ms`",
+            "Slept for `75 ms`",
+            "Slept for `99 ms`",
+            "Done!",
+        ]))
+
 
 if __name__ == "__main__":
     main()
