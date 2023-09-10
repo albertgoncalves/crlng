@@ -5,6 +5,8 @@
 !README.md
 !.clang-format
 
+!Makefile
+
 !scripts/
 !*.py
 !*.sh
