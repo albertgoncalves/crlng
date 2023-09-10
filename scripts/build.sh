@@ -38,6 +38,7 @@ flags_c=(
     -Wno-disabled-macro-expansion
     -Wno-padded
     -Wno-pointer-arith
+    -Wno-unsafe-buffer-usage
 )
 
 clang-format -i -verbose "$WD/src/"runtime.c &
