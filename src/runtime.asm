@@ -1,6 +1,6 @@
 format ELF64
 
-public main
+public _start
 
 public THREAD
 public SCHED_RSP
@@ -106,7 +106,7 @@ section '.text' executable
         jmp     scheduler
 
 
-    main:
+    _start:
         push    rbp
         mov     rbp, rsp
 
